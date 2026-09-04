@@ -41,4 +41,12 @@ class Device extends Model
         return $this->hasMany(PhotoSession::class);
     }
 
+    public function frames()
+    {
+        return $this->belongsToMany(
+            Frame::class,
+            'device_frames'
+        )->withTimestamps();
+    }
+
 }
