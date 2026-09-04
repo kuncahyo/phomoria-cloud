@@ -31,4 +31,19 @@ Route::middleware("auth:sanctum")->group(function () {
         [SessionUploadController::class,"upload"]
     );
 
+    Route::get(
+        "device/frames",
+        [DeviceController::class, "frames"]
+    );
+
+    Route::post(
+        "device/frames/{frame}",
+        [DeviceController::class, "attachFrame"]
+    );
+
+    Route::delete(
+        "device/frames/{frame}",
+        [DeviceController::class, "detachFrame"]
+    );
+
 });
