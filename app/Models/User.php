@@ -30,8 +30,13 @@ class User extends Authenticatable
         ];
     }
 
-public function devices()
-{
-    return $this->hasMany(Device::class);
-}
+    public function devices()
+    {
+        return $this->hasMany(Device::class);
+    }
+
+    public function frames()
+    {
+        return $this->hasMany(Frame::class);
+    }
 }

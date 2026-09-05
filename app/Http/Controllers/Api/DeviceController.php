@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Device;
 use App\Models\Frame;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class DeviceController extends Controller
 {
@@ -133,6 +134,13 @@ class DeviceController extends Controller
             ], 404);
         }
 
+        if ($frame->user_id !== $request->user()->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Frame bukan milik user ini'
+            ], 403);
+        }
+
         if ($frame->status !== 'ACTIVE') {
             return response()->json([
                 'success' => false,
@@ -163,11 +171,77 @@ class DeviceController extends Controller
             ], 404);
         }
 
+        if ($frame->user_id !== $request->user()->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Frame bukan milik user ini'
+            ], 403);
+        }
+
         $device->frames()->detach($frame->id);
 
         return response()->json([
             'success' => true,
             'message' => 'Frame berhasil dilepas dari device'
         ]);
+    }
+    public function downloadFrame(Request $request, Frame $frame)
+    {
+        $request->validate([
+            'device_id' => 'required|integer',
+        ]);
+
+        $device = $request->user()
+            ->devices()
+            ->where('id', $request->device_id)
+            ->first();
+
+        if (!$device) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Device tidak ditemukan',
+            ], 404);
+        }
+
+        if ((int) $frame->user_id !== (int) $request->user()->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Frame bukan milik user ini',
+            ], 403);
+        }
+
+        $assigned = $device->frames()
+            ->where('frames.id', $frame->id)
+            ->exists();
+
+        if (!$assigned) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Frame tidak diizinkan untuk device ini',
+            ], 403);
+        }
+
+        if ($frame->status !== 'ACTIVE') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Frame tidak aktif',
+            ], 422);
+        }
+
+        if (!Storage::disk('public')->exists($frame->image_path)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'File frame tidak ditemukan',
+            ], 404);
+        }
+
+        return Storage::disk('public')->download(
+            $frame->image_path,
+            $frame->id . '.png',
+            [
+                'Content-Type' => 'image/png',
+                'Cache-Control' => 'private, max-age=0',
+            ]
+        );
     }
 }

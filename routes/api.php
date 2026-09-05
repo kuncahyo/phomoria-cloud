@@ -51,4 +51,9 @@ Route::middleware("auth:sanctum")->group(function () {
         [DeviceController::class, "config"]
     );
 
+    Route::get(
+        "device/frames/{frame}/download",
+        [DeviceController::class, "downloadFrame"]
+    );
+
 });
