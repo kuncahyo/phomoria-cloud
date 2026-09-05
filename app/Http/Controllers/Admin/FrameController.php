@@ -36,7 +36,7 @@ class FrameController extends Controller
     ) {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'category' => ['nullable', 'string', 'max:100'],
+            'category' => ['required', 'in:standar,split'],
             'image' => ['required', 'file', 'mimes:png', 'max:10240'],
         ]);
 
