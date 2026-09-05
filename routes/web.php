@@ -2,12 +2,27 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\GalleryController;
+use App\Http\Controllers\DownloadController;
 use App\Http\Controllers\Auth\WebAuthController;
 use App\Http\Controllers\Admin\FrameController;
 
 Route::get('/', function () {
-    return redirect()->route('login');
-});
+    return view('welcome');
+})->name('home');
+
+Route::get('/download', function () {
+    return view('download');
+})->name('download');
+
+Route::get(
+    '/download/phomoria',
+    [DownloadController::class, 'phomoria']
+)->name('download.phomoria');
+
+Route::get(
+    '/download/zadig',
+    [DownloadController::class, 'zadig']
+)->name('download.zadig');
 
 Route::get('/gallery/{session_code}', [GalleryController::class, 'show']);
 
@@ -20,7 +35,6 @@ Route::get(
     '/gallery/{session_code}/download',
     [GalleryController::class, 'downloadZip']
 )->name('gallery.download');
-
 
 Route::get(
     '/login',
@@ -37,7 +51,6 @@ Route::post(
     [WebAuthController::class, 'logout']
 )->middleware('auth')
 ->name('logout');
-
 
 Route::middleware('auth')->group(function () {
 
