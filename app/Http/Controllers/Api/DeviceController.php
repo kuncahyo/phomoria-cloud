@@ -42,6 +42,51 @@ class DeviceController extends Controller
         ]);
     }
 
+    public function config(Request $request)
+    {
+        $request->validate([
+            'device_uuid' => 'required|string',
+        ]);
+
+        $device = $request->user()
+            ->devices()
+            ->where('device_uuid', $request->device_uuid)
+            ->first();
+
+        if (!$device) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Device tidak ditemukan',
+            ], 404);
+        }
+
+        $frames = $device->frames()
+            ->where('frames.status', 'ACTIVE')
+            ->with('placements')
+            ->orderBy('frames.name')
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'user' => [
+                    'id' => $request->user()->id,
+                    'name' => $request->user()->name,
+                    'email' => $request->user()->email,
+                ],
+
+                'device' => [
+                    'id' => $device->id,
+                    'device_uuid' => $device->device_uuid,
+                    'name' => $device->computer_name,
+                    'status' => $device->status,
+                ],
+
+                'frames' => $frames,
+            ],
+        ]);
+    }
+
     public function frames(Request $request)
     {
         $device = Device::where('id', $request->user()->devices()

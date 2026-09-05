@@ -46,4 +46,9 @@ Route::middleware("auth:sanctum")->group(function () {
         [DeviceController::class, "detachFrame"]
     );
 
+    Route::get(
+        "device/config",
+        [DeviceController::class, "config"]
+    );
+
 });
