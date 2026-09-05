@@ -11,7 +11,7 @@ class WebAuthController extends Controller
     public function showLogin()
     {
         if (Auth::check()) {
-            return redirect('/admin');
+            return redirect()->route('admin');
         }
 
         return view('auth.login');
@@ -34,7 +34,7 @@ class WebAuthController extends Controller
 
         $request->session()->regenerate();
 
-        return redirect()->intended('/admin');
+        return redirect()->intended(route('admin'));
     }
 
     public function logout(Request $request)
@@ -44,6 +44,6 @@ class WebAuthController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect('/login');
+        return redirect()->route('login');
     }
 }

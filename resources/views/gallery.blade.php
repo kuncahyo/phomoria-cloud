@@ -136,20 +136,12 @@ src="{{ $photo->url }}">
 
 <div style="margin-top:25px;">
 
-<a
-href="{{ $result->url }}"
-download>
-
-Download Result
-
+<a href="{{ route('gallery.download.result', $session->session_code) }}">
+    Download Result
 </a>
 
-<a
-href="{{ url('/gallery/'.$session->session_code.'/download') }}"
-style="margin-left:10px;background:#4CAF50;">
-
-Download Semua Foto (.ZIP)
-
+<a href="{{ route('gallery.download', $session->session_code) }}" style="margin-left:10px;background:#4CAF50;">
+    Download Semua Foto (ZIP)
 </a>
 
 </div>

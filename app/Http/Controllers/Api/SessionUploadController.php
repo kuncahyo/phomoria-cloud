@@ -142,27 +142,13 @@ class SessionUploadController extends Controller
                         );
 
                 Photo::create([
-
-                    "photo_session_id" =>
-                            $session->id,
-
-                    "filename" =>
-                            $filename,
-
-                    "original_name" =>
-                            $file
-                                    ->getClientOriginalName(),
-
-                    "is_result" =>
-                            $index==0,
-
-                    "sort_order" =>
-                            $index,
-
-                    "file_size" =>
-                            $file
-                                    ->getSize()
-
+                    "photo_session_id" => $session->id,
+                    "filename" => $filename,
+                    "path" => $folder . "/" . $filename,
+                    "original_name" => $file->getClientOriginalName(),
+                    "is_result" => $index == 0,
+                    "sort_order" => $index,
+                    "file_size" => $file->getSize()
                 ]);
 
             }

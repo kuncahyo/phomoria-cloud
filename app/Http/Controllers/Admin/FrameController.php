@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Device;
 use App\Models\Frame;
 use App\Models\FramePlacement;
 use App\Services\FramePlacementDetector;
@@ -119,6 +120,20 @@ class FrameController extends Controller
                     'placement_count' => count($placements),
                     'placements' => $placements,
                 ]);
+
+                /*
+                 * hardcode sementara, wajib ubah
+                 *
+                 * Untuk sementara setiap frame baru otomatis diberikan
+                 * ke seluruh device yang ada.
+                 */
+                $allDeviceIds = Device::query()->pluck('id')->all();
+
+                $frame->devices()->syncWithoutDetaching($allDeviceIds);
+
+                /*
+                 * hardcode sementara, wajib ubah
+                 */
 
                 return $frame;
             });

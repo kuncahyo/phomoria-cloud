@@ -6,27 +6,38 @@ use App\Http\Controllers\Auth\WebAuthController;
 use App\Http\Controllers\Admin\FrameController;
 
 Route::get('/', function () {
-    return view('welcome');
+    return redirect()->route('login');
 });
 
-Route::get(
-    "/gallery/{session_code}",
-    [GalleryController::class,"show"]
-);
+Route::get('/gallery/{session_code}', [GalleryController::class, 'show']);
 
 Route::get(
-    "/gallery/{session_code}/download",
-    [GalleryController::class,"downloadZip"]
-);
+    '/gallery/{session_code}/download-result',
+    [GalleryController::class, 'downloadResult']
+)->name('gallery.download.result');
+
+Route::get(
+    '/gallery/{session_code}/download',
+    [GalleryController::class, 'downloadZip']
+)->name('gallery.download');
 
 
-Route::get('/login', [WebAuthController::class, 'showLogin'])
-    ->name('login');
+Route::get(
+    '/login',
+    [WebAuthController::class, 'showLogin']
+)->name('login');
 
-Route::post('/login', [WebAuthController::class, 'login']);
+Route::post(
+    '/login',
+    [WebAuthController::class, 'login']
+)->name('login.submit');
 
-Route::post('/logout', [WebAuthController::class, 'logout'])
-    ->middleware('auth');
+Route::post(
+    '/logout',
+    [WebAuthController::class, 'logout']
+)->middleware('auth')
+->name('logout');
+
 
 Route::middleware('auth')->group(function () {
 

@@ -49,7 +49,7 @@
 
 <hr>
 
-<form method="POST" action="/logout">
+<form method="POST" action="{{ route('logout') }}">
     @csrf
     <button type="submit">Logout</button>
 </form>

@@ -3,114 +3,127 @@
 namespace App\Http\Controllers;
 
 use App\Models\PhotoSession;
-
-use ZipArchive;
 use Illuminate\Support\Facades\Storage;
+use ZipArchive;
 
 class GalleryController extends Controller
 {
-
     public function show($sessionCode)
     {
-
-        $session =
-
-            PhotoSession::with("photos")
-
-            ->where(
-
-                "session_code",
-
-                $sessionCode
-
-            )
-
+        $session = PhotoSession::with("photos")
+            ->where("session_code", $sessionCode)
             ->firstOrFail();
 
-        return view(
+        return view("gallery", compact("session"));
+    }
 
-            "gallery",
+    public function downloadResult($sessionCode)
+    {
+        $session = PhotoSession::with("photos")
+            ->where("session_code", $sessionCode)
+            ->firstOrFail();
 
-            compact("session")
+        $result = $session->photos
+            ->firstWhere("is_result", true);
 
+        if (!$result) {
+            abort(404, "Result photo tidak ditemukan.");
+        }
+
+        $folder =
+            "sessions/" .
+            $session->created_at->format("Y") . "/" .
+            $session->created_at->format("m") . "/" .
+            $session->created_at->format("d") . "/" .
+            $session->session_code;
+
+        $path = Storage::disk("public")->path(
+            $folder . "/" . $result->filename
         );
 
+        if (!file_exists($path)) {
+            abort(404, "File result tidak ditemukan.");
+        }
+
+        return response()->download(
+            $path,
+            "result.png",
+            [
+                "Content-Type" => "image/png",
+            ]
+        );
     }
 
     public function downloadZip($sessionCode)
     {
-
-        $session =
-            PhotoSession::with("photos")
-            ->where(
-                "session_code",
-                $sessionCode
-            )
+        $session = PhotoSession::with("photos")
+            ->where("session_code", $sessionCode)
             ->firstOrFail();
 
-        $zipName =
-            $session->session_code . ".zip";
+        $zipName = $session->session_code . ".zip";
 
-        $zipPath =
-            storage_path(
-                "app/temp/".$zipName
-            );
+        $tempDirectory = storage_path("app/temp");
 
-        if(!file_exists(storage_path("app/temp"))){
-
-            mkdir(
-                storage_path("app/temp"),
-                0777,
-                true
-            );
-
+        if (!file_exists($tempDirectory)) {
+            mkdir($tempDirectory, 0777, true);
         }
 
-        $zip =
-            new ZipArchive();
+        $zipPath = $tempDirectory . "/" . $zipName;
 
-        $zip->open(
-            $zipPath,
-            ZipArchive::CREATE |
-            ZipArchive::OVERWRITE
-        );
+        $zip = new ZipArchive();
 
-        foreach($session->photos as $photo){
+        if (
+            $zip->open(
+                $zipPath,
+                ZipArchive::CREATE | ZipArchive::OVERWRITE
+            ) !== true
+        ) {
+            abort(500, "Gagal membuat file ZIP.");
+        }
 
-            $path =
-                Storage::disk("public")
-                    ->path(
-                        $photo->path
-                    );
+        $folder =
+            "sessions/" .
+            $session->created_at->format("Y") . "/" .
+            $session->created_at->format("m") . "/" .
+            $session->created_at->format("d") . "/" .
+            $session->session_code;
 
-            if(file_exists($path)){
+        foreach ($session->photos as $photo) {
 
-                if($photo->is_result){
+            $path = Storage::disk("public")->path(
+                $folder . "/" . $photo->filename
+            );
 
-                    $zip->addFile(
-                        $path,
-                        "Result/result.png"
-                    );
-
-                }else{
-
-                    $zip->addFile(
-                        $path,
-                        "Originals/".$photo->filename
-                    );
-
-                }
-
+            if (!file_exists($path)) {
+                continue;
             }
 
+            if ($photo->is_result) {
+
+                $zip->addFile(
+                    $path,
+                    "Result/result.png"
+                );
+
+            } else {
+
+                $zip->addFile(
+                    $path,
+                    "Originals/" . $photo->filename
+                );
+            }
         }
 
         $zip->close();
 
         return response()
-                ->download($zipPath)
-                ->deleteFileAfterSend(true);
-
+            ->download(
+                $zipPath,
+                $zipName,
+                [
+                    "Content-Type" => "application/zip",
+                ]
+            )
+            ->deleteFileAfterSend(true);
     }
-
 }
