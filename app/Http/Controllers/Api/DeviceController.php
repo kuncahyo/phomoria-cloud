@@ -22,9 +22,7 @@ class DeviceController extends Controller
         ]);
 
         $device = Device::updateOrCreate(
-            [
-                'device_uuid' => $request->device_uuid
-            ],
+            ['device_uuid' => $request->device_uuid],
             [
                 'user_id' => $request->user()->id,
                 'computer_name' => $request->computer_name,
@@ -45,27 +43,17 @@ class DeviceController extends Controller
 
     public function config(Request $request)
     {
-        $request->validate([
-            'device_uuid' => 'required|string',
-        ]);
+        $request->validate(['device_uuid' => 'required|string']);
 
-        $device = $request->user()
-            ->devices()
-            ->where('device_uuid', $request->device_uuid)
-            ->first();
+        $device = $request->user()->devices()
+            ->where('device_uuid', $request->device_uuid)->first();
 
         if (!$device) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Device tidak ditemukan',
-            ], 404);
+            return response()->json(['success' => false, 'message' => 'Device tidak ditemukan'], 404);
         }
 
-        $frames = $device->frames()
-            ->where('frames.status', 'ACTIVE')
-            ->with('placements')
-            ->orderBy('frames.name')
-            ->get();
+        $frames = $device->frames()->where('frames.status', 'ACTIVE')
+            ->with('placements')->orderBy('frames.name')->get();
 
         return response()->json([
             'success' => true,
@@ -75,14 +63,12 @@ class DeviceController extends Controller
                     'name' => $request->user()->name,
                     'email' => $request->user()->email,
                 ],
-
                 'device' => [
                     'id' => $device->id,
                     'device_uuid' => $device->device_uuid,
                     'name' => $device->computer_name,
                     'status' => $device->status,
                 ],
-
                 'frames' => $frames,
             ],
         ]);
@@ -90,29 +76,24 @@ class DeviceController extends Controller
 
     public function frames(Request $request)
     {
-        $device = Device::where('id', $request->user()->devices()
-            ->where('id', $request->device_id)
-            ->value('id'))
-            ->first();
+        $request->validate(['device_uuid' => 'required|string']);
+
+        $device = $request->user()->devices()
+            ->where('device_uuid', $request->device_uuid)->first();
 
         if (!$device) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Device tidak ditemukan'
-            ], 404);
+            return response()->json(['success' => false, 'message' => 'Device tidak ditemukan'], 404);
         }
 
-        $frames = $device->frames()
-            ->where('frames.status', 'ACTIVE')
-            ->with('placements')
-            ->orderBy('frames.name')
-            ->get();
+        $frames = $device->frames()->where('frames.status', 'ACTIVE')
+            ->with('placements')->orderBy('frames.name')->get();
 
         return response()->json([
             'success' => true,
             'data' => [
                 'device' => [
                     'id' => $device->id,
+                    'device_uuid' => $device->device_uuid,
                     'name' => $device->computer_name,
                     'status' => $device->status,
                 ],
@@ -123,116 +104,69 @@ class DeviceController extends Controller
 
     public function attachFrame(Request $request, Frame $frame)
     {
+        $request->validate(['device_id' => 'required|integer']);
+
         $device = Device::where('id', $request->device_id)
-            ->where('user_id', $request->user()->id)
-            ->first();
+            ->where('user_id', $request->user()->id)->first();
 
-        if (!$device) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Device tidak ditemukan'
-            ], 404);
-        }
+        if (!$device) return response()->json(['success' => false, 'message' => 'Device tidak ditemukan'], 404);
 
-        if ($frame->user_id !== $request->user()->id) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Frame bukan milik user ini'
-            ], 403);
+        if ((int) $frame->user_id !== (int) $request->user()->id) {
+            return response()->json(['success' => false, 'message' => 'Frame bukan milik user ini'], 403);
         }
 
         if ($frame->status !== 'ACTIVE') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Frame tidak aktif'
-            ], 422);
+            return response()->json(['success' => false, 'message' => 'Frame tidak aktif'], 422);
         }
 
-        $device->frames()->syncWithoutDetaching([
-            $frame->id
-        ]);
+        $device->frames()->syncWithoutDetaching([$frame->id]);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Frame berhasil ditambahkan ke device'
-        ]);
+        return response()->json(['success' => true, 'message' => 'Frame berhasil dipasang ke device']);
     }
 
     public function detachFrame(Request $request, Frame $frame)
     {
+        $request->validate(['device_id' => 'required|integer']);
+
         $device = Device::where('id', $request->device_id)
-            ->where('user_id', $request->user()->id)
-            ->first();
+            ->where('user_id', $request->user()->id)->first();
 
-        if (!$device) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Device tidak ditemukan'
-            ], 404);
-        }
+        if (!$device) return response()->json(['success' => false, 'message' => 'Device tidak ditemukan'], 404);
 
-        if ($frame->user_id !== $request->user()->id) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Frame bukan milik user ini'
-            ], 403);
+        if ((int) $frame->user_id !== (int) $request->user()->id) {
+            return response()->json(['success' => false, 'message' => 'Frame bukan milik user ini'], 403);
         }
 
         $device->frames()->detach($frame->id);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Frame berhasil dilepas dari device'
-        ]);
+        return response()->json(['success' => true, 'message' => 'Frame berhasil dilepas dari device']);
     }
+
     public function downloadFrame(Request $request, Frame $frame)
     {
-        $request->validate([
-            'device_id' => 'required|integer',
-        ]);
+        $request->validate(['device_uuid' => 'required|string']);
 
-        $device = $request->user()
-            ->devices()
-            ->where('id', $request->device_id)
-            ->first();
+        $device = $request->user()->devices()
+            ->where('device_uuid', $request->device_uuid)->first();
 
         if (!$device) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Device tidak ditemukan',
-            ], 404);
+            return response()->json(['success' => false, 'message' => 'Device tidak ditemukan'], 404);
         }
 
         if ((int) $frame->user_id !== (int) $request->user()->id) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Frame bukan milik user ini',
-            ], 403);
+            return response()->json(['success' => false, 'message' => 'Frame bukan milik user ini'], 403);
         }
 
-        $assigned = $device->frames()
-            ->where('frames.id', $frame->id)
-            ->exists();
-
-        if (!$assigned) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Frame tidak diizinkan untuk device ini',
-            ], 403);
+        if (!$device->frames()->where('frames.id', $frame->id)->exists()) {
+            return response()->json(['success' => false, 'message' => 'Frame tidak diizinkan untuk device ini'], 403);
         }
 
         if ($frame->status !== 'ACTIVE') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Frame tidak aktif',
-            ], 422);
+            return response()->json(['success' => false, 'message' => 'Frame tidak aktif'], 422);
         }
 
         if (!Storage::disk('public')->exists($frame->image_path)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'File frame tidak ditemukan',
-            ], 404);
+            return response()->json(['success' => false, 'message' => 'File frame tidak ditemukan'], 404);
         }
 
         return Storage::disk('public')->download(
