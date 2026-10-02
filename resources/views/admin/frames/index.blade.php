@@ -1,12 +1,10 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+@extends('layouts.admin')
 
-    <title>Frames - Phomoria Cloud</title>
+@section('title', 'Frames - Phomoria Cloud')
 
-    <style>
+@section('styles')
+<style>
+
         * {
             box-sizing: border-box;
         }
@@ -380,40 +378,13 @@
                 padding: 15px;
             }
         }
-    </style>
-</head>
+    
+</style>
+@endsection
 
-<body>
+@section('content')
+<main style="padding: 45px 0 90px;">
 
-<header>
-    <div class="container">
-        <nav>
-
-            <a href="{{ route('home') }}" class="brand">
-                PHOMORIA
-            </a>
-
-            <div class="nav-right">
-
-                <a href="{{ route('download') }}" class="nav-link">
-                    Downloads
-                </a>
-
-                <form method="POST" action="{{ route('logout') }}">
-                    @csrf
-
-                    <button type="submit" class="logout">
-                        Logout
-                    </button>
-                </form>
-
-            </div>
-
-        </nav>
-    </div>
-</header>
-
-<main>
     <div class="container">
 
         <div class="page-heading">
@@ -556,88 +527,6 @@
         @endif
 
     </div>
+
 </main>
-
-<footer>
-    <div class="container">
-        © {{ date('Y') }} Phomoria Cloud
-    </div>
-</footer>
-
-<div
-    id="frameModal"
-    class="modal"
-    onclick="closeFramePreview(event)"
->
-
-    <div class="modal-content">
-
-        <button
-            type="button"
-            class="modal-close"
-            onclick="closeFramePreview()"
-            aria-label="Tutup preview"
-        >
-            ×
-        </button>
-
-        <div class="modal-image-wrapper">
-
-            <img
-                id="frameModalImage"
-                class="modal-image"
-                src=""
-                alt=""
-            >
-
-        </div>
-
-        <div
-            id="frameModalTitle"
-            class="modal-title"
-        ></div>
-
-    </div>
-
-</div>
-
-<script>
-    function openFramePreview(imageUrl, title) {
-        const modal = document.getElementById('frameModal');
-        const image = document.getElementById('frameModalImage');
-        const modalTitle = document.getElementById('frameModalTitle');
-
-        image.src = imageUrl;
-        image.alt = title;
-        modalTitle.textContent = title;
-
-        modal.classList.add('open');
-        document.body.style.overflow = 'hidden';
-    }
-
-    function closeFramePreview(event) {
-        if (
-            event &&
-            event.target !== document.getElementById('frameModal')
-        ) {
-            return;
-        }
-
-        const modal = document.getElementById('frameModal');
-        const image = document.getElementById('frameModalImage');
-
-        modal.classList.remove('open');
-        image.src = '';
-
-        document.body.style.overflow = '';
-    }
-
-    document.addEventListener('keydown', function (event) {
-        if (event.key === 'Escape') {
-            closeFramePreview();
-        }
-    });
-</script>
-
-</body>
-</html>
+@endsection
