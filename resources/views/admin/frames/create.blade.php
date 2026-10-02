@@ -1,12 +1,10 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+@extends('layouts.admin')
 
-    <title>Upload Frame - Phomoria Cloud</title>
+@section('title', 'Upload Frame - Phomoria Cloud')
 
-    <style>
+@section('styles')
+<style>
+
         * {
             box-sizing: border-box;
         }
@@ -287,31 +285,13 @@
                 width: 100%;
             }
         }
-    </style>
-</head>
+    
+</style>
+@endsection
 
-<body>
+@section('content')
+<main style="padding: 45px 0 90px;">
 
-<header>
-    <div class="container">
-        <nav>
-
-            <a href="{{ route('home') }}" class="brand">
-                PHOMORIA
-            </a>
-
-            <a
-                href="{{ route('admin.frames.index') }}"
-                class="back"
-            >
-                Back to Frames
-            </a>
-
-        </nav>
-    </div>
-</header>
-
-<main>
     <div class="container">
 
         <div class="heading">
@@ -470,54 +450,6 @@
         </div>
 
     </div>
+
 </main>
-
-<footer>
-    <div class="container">
-        © {{ date('Y') }} Phomoria Cloud
-    </div>
-</footer>
-
-<script>
-    const imageInput = document.getElementById('image');
-    const previewSection = document.getElementById('previewSection');
-    const previewImage = document.getElementById('previewImage');
-    const previewInfo = document.getElementById('previewInfo');
-
-    imageInput.addEventListener('change', function () {
-        const file = this.files[0];
-
-        if (!file) {
-            previewSection.classList.remove('visible');
-            previewImage.style.display = 'none';
-            previewImage.src = '';
-            previewInfo.textContent = '';
-            return;
-        }
-
-        if (file.type !== 'image/png') {
-            previewSection.classList.remove('visible');
-            previewImage.style.display = 'none';
-            previewImage.src = '';
-            previewInfo.textContent = '';
-            return;
-        }
-
-        const objectUrl = URL.createObjectURL(file);
-
-        previewImage.onload = function () {
-            previewSection.classList.add('visible');
-            previewImage.style.display = 'block';
-
-            previewInfo.textContent =
-                `${previewImage.naturalWidth} × ${previewImage.naturalHeight}px`;
-
-            URL.revokeObjectURL(objectUrl);
-        };
-
-        previewImage.src = objectUrl;
-    });
-</script>
-
-</body>
-</html>
+@endsection
