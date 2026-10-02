@@ -4,7 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\GalleryController;
 use App\Http\Controllers\DownloadController;
 use App\Http\Controllers\Auth\WebAuthController;
-use App\Http\Controllers\Admin\FrameController;
+use App\Http\Controllers\Admin\FrameAssignmentController as FrameController;
 
 Route::get('/', function () {
     return view('welcome');
