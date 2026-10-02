@@ -64,6 +64,16 @@ Route::middleware('auth')->group(function () {
     )->name('admin.frames.index');
 
     Route::get(
+        '/admin/frames/select',
+        [FrameController::class, 'selectDevices']
+    )->name('admin.frames.select');
+
+    Route::post(
+        '/admin/frames/select',
+        [FrameController::class, 'saveDeviceFrames']
+    )->name('admin.frames.select.save');
+
+    Route::get(
         '/admin/frames/create',
         [FrameController::class, 'create']
     )->name('admin.frames.create');
