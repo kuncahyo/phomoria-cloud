@@ -28,7 +28,12 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+        public function isAdmin(): bool
+    {
+        return (int) $this->id === 1;
     }
+
+}
 
     public function devices()
     {
