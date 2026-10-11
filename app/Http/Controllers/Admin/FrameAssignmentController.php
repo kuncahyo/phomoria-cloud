@@ -6,42 +6,87 @@ use App\Http\Controllers\Controller;
 use App\Models\Device;
 use App\Models\Frame;
 use App\Models\FramePlacement;
+use App\Models\User;
 use App\Services\FramePlacementDetector;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
 class FrameAssignmentController extends Controller
 {
-    public function index(Request $request)
+    private function targetUser(Request $request): User
     {
         $user = $request->user();
 
-        $frames = $user->isAdmin()
-            ? Frame::with('placements')->orderBy('name')->get()
-            : $user->frames()->with('placements')->orderBy('name')->get();
+        if (!$user->isSuperAdmin()) {
+            return $user;
+        }
 
-        return view('admin.frames.index', compact('frames'));
+        $userId = $request->input('user_id');
+
+        if (!$userId) {
+            return User::orderBy('name')->firstOrFail();
+        }
+
+        return User::findOrFail($userId);
     }
 
-    public function create()
+    private function accessibleUsers(Request $request)
     {
-        return view('admin.frames.create');
+        return $request->user()->isSuperAdmin()
+            ? User::orderBy('name')->get()
+            : collect([$request->user()]);
+    }
+
+    public function index(Request $request)
+    {
+        $targetUser = $this->targetUser($request);
+        $frames = $targetUser->frames()
+            ->with('placements')
+            ->orderBy('name')
+            ->get();
+
+        return view('admin.frames.index', [
+            'frames' => $frames,
+            'users' => $this->accessibleUsers($request),
+            'targetUser' => $targetUser,
+            'isSuperAdmin' => $request->user()->isSuperAdmin(),
+        ]);
+    }
+
+    public function create(Request $request)
+    {
+        $targetUser = $request->user()->isSuperAdmin()
+            ? ($request->filled('user_id') ? User::findOrFail($request->integer('user_id')) : null)
+            : $request->user();
+
+        return view('admin.frames.create', [
+            'users' => $this->accessibleUsers($request),
+            'targetUser' => $targetUser,
+            'isSuperAdmin' => $request->user()->isSuperAdmin(),
+        ]);
     }
 
     public function store(Request $request, FramePlacementDetector $detector)
     {
-        $data = $request->validate([
+        $rules = [
             'name' => ['required', 'string', 'max:255'],
             'category' => ['required', 'in:standar,split'],
             'image' => ['required', 'file', 'mimes:png', 'max:10240'],
-        ]);
+        ];
+
+        if ($request->user()->isSuperAdmin()) {
+            $rules['user_id'] = ['required', 'integer', 'exists:users,id'];
+        }
+
+        $data = $request->validate($rules);
+        $targetUser = $this->targetUser($request);
 
         $image = $request->file('image');
         $path = $image->storeAs('frames', Str::uuid().'.png', 'public');
         $info = getimagesize($image->getRealPath());
 
         $frame = Frame::create([
-            'user_id' => $request->user()->id,
+            'user_id' => $targetUser->id,
             'name' => $data['name'],
             'category' => $data['category'],
             'image_path' => $path,
@@ -66,75 +111,83 @@ class FrameAssignmentController extends Controller
             ]);
         }
 
+        $query = $request->user()->isSuperAdmin()
+            ? ['user_id' => $targetUser->id]
+            : [];
+
         return redirect()
-            ->route('admin.frames.index')
-            ->with('success', 'Frame berhasil diupload.');
+            ->route('admin.frames.index', $query)
+            ->with('success', 'Frame berhasil diupload. Frame belum diberikan ke device mana pun.');
     }
 
     public function selectDevices(Request $request)
     {
-        $user = $request->user();
+        $targetUser = $this->targetUser($request);
+        $frames = $targetUser->frames()
+            ->where('status', 'ACTIVE')
+            ->orderBy('name')
+            ->get();
+        $devices = $targetUser->devices()
+            ->orderBy('computer_name')
+            ->get();
 
-        $frames = $user->isAdmin()
-            ? Frame::where('status', 'ACTIVE')->orderBy('name')->get()
-            : $user->frames()->where('status', 'ACTIVE')->orderBy('name')->get();
+        $selectedDevice = $request->integer('device_id');
+        $device = $selectedDevice
+            ? $devices->firstWhere('id', $selectedDevice)
+            : $devices->first();
 
-        $devices = $user->isAdmin()
-            ? Device::orderBy('computer_name')->get()
-            : $user->devices()->orderBy('computer_name')->get();
-
-        $assignments = [];
-
-        foreach ($devices as $device) {
-            $assignments[$device->id] = $device->frames()
-                ->pluck('frames.id')
-                ->map(fn ($id) => (int) $id)
-                ->all();
-        }
+        $assignedFrameIds = $device
+            ? $device->frames()->pluck('frames.id')->map(fn ($id) => (int) $id)->all()
+            : [];
 
         return view('admin.frames.select', [
-            'frames' => $frames,
+            'users' => $this->accessibleUsers($request),
+            'targetUser' => $targetUser,
             'devices' => $devices,
-            'assignments' => $assignments,
-            'isAdmin' => $user->isAdmin(),
+            'device' => $device,
+            'frames' => $frames,
+            'assignedFrameIds' => $assignedFrameIds,
+            'isSuperAdmin' => $request->user()->isSuperAdmin(),
         ]);
     }
 
     public function saveDeviceFrames(Request $request)
     {
-        $user = $request->user();
-
-        $data = $request->validate([
+        $rules = [
+            'device_id' => ['required', 'integer'],
             'assignments' => ['nullable', 'array'],
-        ]);
+        ];
 
-        $devices = $user->isAdmin()
-            ? Device::all()
-            : $user->devices()->get();
+        if ($request->user()->isSuperAdmin()) {
+            $rules['user_id'] = ['required', 'integer', 'exists:users,id'];
+        }
 
-        $frames = $user->isAdmin()
-            ? Frame::where('status', 'ACTIVE')->get()
-            : $user->frames()->where('status', 'ACTIVE')->get();
+        $data = $request->validate($rules);
+        $targetUser = $this->targetUser($request);
 
+        $device = $targetUser->devices()->whereKey($data['device_id'])->firstOrFail();
+        $frames = $targetUser->frames()->where('status', 'ACTIVE')->get();
         $frameIds = $frames->pluck('id')->map(fn ($id) => (int) $id)->all();
 
-        foreach ($devices as $device) {
-            $selected = collect($data['assignments'][$device->id] ?? [])
-                ->map(fn ($id) => (int) $id)
-                ->filter(fn ($id) => in_array($id, $frameIds, true))
-                ->unique()
-                ->values()
-                ->all();
+        $selected = collect($data['assignments'] ?? [])
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => in_array($id, $frameIds, true))
+            ->unique()
+            ->values()
+            ->all();
 
-            $device->frames()->detach();
+        $device->frames()->sync($selected);
 
-            if (count($selected) > 0) {
-                $device->frames()->attach($selected);
-            }
+        $query = [
+            'device_id' => $device->id,
+        ];
+
+        if ($request->user()->isSuperAdmin()) {
+            $query['user_id'] = $targetUser->id;
         }
 
         return redirect()
-            ->route('admin.frames.select')
+            ->route('admin.frames.select', $query)
             ->with('success', 'Pengaturan frame berhasil disimpan.');
     }
 }

@@ -22,5 +22,6 @@
 </div>
 </aside>
 <div class="admin-main"><main class="admin-content">@yield('content')</main></div>
+@yield('scripts')
 </body>
 </html>
