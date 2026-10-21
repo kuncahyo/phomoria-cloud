@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Services\FramePlacementDetector;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -212,6 +213,35 @@ class FrameAssignmentController extends Controller
         return redirect()
             ->route('admin.frames.index', $query)
             ->with('success', 'Layout frame berhasil disimpan. Versi frame telah diperbarui.');
+    }
+
+    public function destroy(Request $request, Frame $frame)
+    {
+        $targetUser = $this->targetUser($request);
+        $frame = $targetUser->frames()
+            ->whereKey($frame->id)
+            ->firstOrFail();
+
+        $imagePath = $frame->image_path;
+
+        // Foreign-key ON DELETE CASCADE handles frame placements and device assignments.
+        $frame->delete();
+
+        // Keep the PNG if another frame still references the same stored path.
+        if (
+            $imagePath &&
+            !Frame::where('image_path', $imagePath)->exists()
+        ) {
+            Storage::disk('public')->delete($imagePath);
+        }
+
+        $query = $request->user()->isSuperAdmin()
+            ? ['user_id' => $targetUser->id]
+            : [];
+
+        return redirect()
+            ->route('admin.frames.index', $query)
+            ->with('success', 'Frame berhasil dihapus.');
     }
 
     public function selectDevices(Request $request)
