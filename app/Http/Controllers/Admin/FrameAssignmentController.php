@@ -163,6 +163,7 @@ class FrameAssignmentController extends Controller
             ->firstOrFail();
 
         $data = $request->validate([
+            'category' => ['required', 'in:standar,split'],
             'printer_profile' => ['required', 'in:PROFILE_1,PROFILE_2'],
             'placements' => ['required', 'array', 'min:1', 'max:50'],
             'placements.*.slot' => ['required', 'integer', 'min:1', 'distinct'],
@@ -201,6 +202,7 @@ class FrameAssignmentController extends Controller
                 ]);
             }
 
+            $frame->category = $data['category'];
             $frame->printer_profile = $data['printer_profile'];
             $frame->version = ((int) $frame->version) + 1;
             $frame->save();
