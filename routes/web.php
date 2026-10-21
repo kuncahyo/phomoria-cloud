@@ -96,4 +96,9 @@ Route::middleware('auth')->group(function () {
         '/admin/frames/{frame}',
         [FrameController::class, 'update']
     )->name('admin.frames.update');
+
+    Route::delete(
+        '/admin/frames/{frame}',
+        [FrameController::class, 'destroy']
+    )->name('admin.frames.destroy');
 });
