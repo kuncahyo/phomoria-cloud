@@ -10,6 +10,7 @@ class FramePlacement extends Model
     protected $fillable = [
         'frame_id',
         'slot',
+        'source_slot',
         'x',
         'y',
         'width',
@@ -19,6 +20,7 @@ class FramePlacement extends Model
 
     protected $casts = [
         'slot' => 'integer',
+        'source_slot' => 'integer',
         'x' => 'integer',
         'y' => 'integer',
         'width' => 'integer',

@@ -2,12 +2,44 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Device;
 use App\Models\PhotoSession;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use ZipArchive;
 
 class GalleryController extends Controller
 {
+    /**
+     * Display all photo sessions, newest first, with an optional device filter.
+     */
+    public function index(Request $request)
+    {
+        $selectedDeviceId = $request->query('device_id');
+
+        $devices = Device::query()
+            ->whereHas('photoSessions')
+            ->orderBy('computer_name')
+            ->get(['id', 'computer_name']);
+
+        $sessions = PhotoSession::query()
+            ->with('device')
+            ->when(
+                $selectedDeviceId,
+                fn ($query) => $query->where('device_id', $selectedDeviceId)
+            )
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->paginate(30)
+            ->withQueryString();
+
+        return view('gallery-index', compact(
+            'sessions',
+            'devices',
+            'selectedDeviceId'
+        ));
+    }
+
     public function show($sessionCode)
     {
         $session = PhotoSession::with("photos")

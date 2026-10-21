@@ -9,7 +9,9 @@ use App\Models\FramePlacement;
 use App\Models\User;
 use App\Services\FramePlacementDetector;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class FrameAssignmentController extends Controller
 {
@@ -89,6 +91,7 @@ class FrameAssignmentController extends Controller
             'user_id' => $targetUser->id,
             'name' => $data['name'],
             'category' => $data['category'],
+            'printer_profile' => 'PROFILE_1',
             'image_path' => $path,
             'version' => 1,
             'sha256' => hash_file('sha256', $image->getRealPath()),
@@ -103,6 +106,9 @@ class FrameAssignmentController extends Controller
             FramePlacement::create([
                 'frame_id' => $frame->id,
                 'slot' => (int) $placement['slot'],
+                // New uploads start with a one-to-one mapping. Admin can
+                // assign the same source_slot to multiple physical holes.
+                'source_slot' => (int) $placement['slot'],
                 'x' => (int) $placement['x'],
                 'y' => (int) $placement['y'],
                 'width' => (int) $placement['width'],
@@ -117,7 +123,95 @@ class FrameAssignmentController extends Controller
 
         return redirect()
             ->route('admin.frames.index', $query)
-            ->with('success', 'Frame berhasil diupload. Frame belum diberikan ke device mana pun.');
+            ->with('success', 'Frame berhasil diupload. Periksa dan sesuaikan layout sebelum digunakan.');
+    }
+
+    public function edit(Request $request, Frame $frame)
+    {
+        $targetUser = $this->targetUser($request);
+        $frame = $targetUser->frames()
+            ->with('placements')
+            ->whereKey($frame->id)
+            ->firstOrFail();
+
+        $initialPlacements = $frame->placements->map(static function ($placement) {
+            return [
+                'slot' => (int) $placement->slot,
+                'source_slot' => (int) ($placement->source_slot ?? $placement->slot),
+                'x' => (int) $placement->x,
+                'y' => (int) $placement->y,
+                'width' => (int) $placement->width,
+                'height' => (int) $placement->height,
+                'rotation' => (float) $placement->rotation,
+            ];
+        })->values();
+
+        return view('admin.frames.edit', [
+            'frame' => $frame,
+            'initialPlacements' => $initialPlacements,
+            'targetUser' => $targetUser,
+            'isSuperAdmin' => $request->user()->isSuperAdmin(),
+        ]);
+    }
+
+    public function update(Request $request, Frame $frame)
+    {
+        $targetUser = $this->targetUser($request);
+        $frame = $targetUser->frames()
+            ->whereKey($frame->id)
+            ->firstOrFail();
+
+        $data = $request->validate([
+            'printer_profile' => ['required', 'in:PROFILE_1,PROFILE_2'],
+            'placements' => ['required', 'array', 'min:1', 'max:50'],
+            'placements.*.slot' => ['required', 'integer', 'min:1', 'distinct'],
+            'placements.*.source_slot' => ['required', 'integer', 'min:1'],
+            'placements.*.x' => ['required', 'integer', 'min:0'],
+            'placements.*.y' => ['required', 'integer', 'min:0'],
+            'placements.*.width' => ['required', 'integer', 'min:1'],
+            'placements.*.height' => ['required', 'integer', 'min:1'],
+            'placements.*.rotation' => ['required', 'numeric', 'between:-360,360'],
+        ]);
+
+        foreach ($data['placements'] as $index => $placement) {
+            if (
+                $placement['x'] + $placement['width'] > (int) $frame->width ||
+                $placement['y'] + $placement['height'] > (int) $frame->height
+            ) {
+                throw ValidationException::withMessages([
+                    "placements.$index.width" =>
+                        "Area lubang foto #".($index + 1)." melewati batas gambar frame.",
+                ]);
+            }
+        }
+
+        DB::transaction(function () use ($frame, $data) {
+            $frame->placements()->delete();
+
+            foreach ($data['placements'] as $placement) {
+                $frame->placements()->create([
+                    'slot' => (int) $placement['slot'],
+                    'source_slot' => (int) $placement['source_slot'],
+                    'x' => (int) $placement['x'],
+                    'y' => (int) $placement['y'],
+                    'width' => (int) $placement['width'],
+                    'height' => (int) $placement['height'],
+                    'rotation' => (float) $placement['rotation'],
+                ]);
+            }
+
+            $frame->printer_profile = $data['printer_profile'];
+            $frame->version = ((int) $frame->version) + 1;
+            $frame->save();
+        });
+
+        $query = $request->user()->isSuperAdmin()
+            ? ['user_id' => $targetUser->id]
+            : [];
+
+        return redirect()
+            ->route('admin.frames.index', $query)
+            ->with('success', 'Layout frame berhasil disimpan. Versi frame telah diperbarui.');
     }
 
     public function selectDevices(Request $request)

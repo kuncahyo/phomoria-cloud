@@ -24,6 +24,10 @@ Route::get(
     [DownloadController::class, 'zadig']
 )->name('download.zadig');
 
+// Daftar seluruh sesi harus didefinisikan sebelum route detail dinamis.
+Route::get('/gallery', [GalleryController::class, 'index'])
+    ->name('gallery.index');
+
 Route::get('/gallery/{session_code}', [GalleryController::class, 'show']);
 
 Route::get(
@@ -82,4 +86,14 @@ Route::middleware('auth')->group(function () {
         '/admin/frames',
         [FrameController::class, 'store']
     )->name('admin.frames.store');
+
+    Route::get(
+        '/admin/frames/{frame}/edit',
+        [FrameController::class, 'edit']
+    )->name('admin.frames.edit');
+
+    Route::put(
+        '/admin/frames/{frame}',
+        [FrameController::class, 'update']
+    )->name('admin.frames.update');
 });

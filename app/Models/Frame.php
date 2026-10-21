@@ -13,6 +13,7 @@ class Frame extends Model
         'user_id',
         'name',
         'category',
+        'printer_profile',
         'image_path',
         'version',
         'sha256',
@@ -35,7 +36,7 @@ class Frame extends Model
 
     public function placements(): HasMany
     {
-        return $this->hasMany(FramePlacement::class);
+        return $this->hasMany(FramePlacement::class)->orderBy('slot');
     }
 
     public function devices(): BelongsToMany
