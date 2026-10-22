@@ -5,6 +5,8 @@ use App\Http\Controllers\GalleryController;
 use App\Http\Controllers\DownloadController;
 use App\Http\Controllers\Auth\WebAuthController;
 use App\Http\Controllers\Admin\FrameAssignmentController as FrameController;
+use App\Http\Controllers\Admin\DevicePricingController;
+use App\Http\Controllers\Admin\DokuPaymentController;
 
 Route::get('/', function () {
     return view('welcome');
@@ -63,6 +65,16 @@ Route::middleware('auth')->group(function () {
     })->name('admin');
 
     Route::get(
+        '/admin/devices/pricing',
+        [DevicePricingController::class, 'index']
+    )->name('admin.devices.pricing');
+
+    Route::put(
+        '/admin/devices/{device}/pricing',
+        [DevicePricingController::class, 'update']
+    )->name('admin.devices.pricing.update');
+
+    Route::get(
         '/admin/frames',
         [FrameController::class, 'index']
     )->name('admin.frames.index');
@@ -101,4 +113,11 @@ Route::middleware('auth')->group(function () {
         '/admin/frames/{frame}',
         [FrameController::class, 'destroy']
     )->name('admin.frames.destroy');
+    
+    //doku
+    Route::get('/admin/doku', [DokuPaymentController::class, 'index'])->name('admin.doku.index');
+    Route::post('/admin/doku', [DokuPaymentController::class, 'save'])->name('admin.doku.save');
+    Route::post('/admin/doku/test/generate', [DokuPaymentController::class, 'testQr'])->name('admin.doku.test.generate');
+    Route::get('/admin/doku/test/{publicId}', [DokuPaymentController::class, 'showTest'])->name('admin.doku.test');
+    Route::get('/admin/doku/test/{publicId}/status', [DokuPaymentController::class, 'status'])->name('admin.doku.status');
 });

@@ -41,6 +41,37 @@ class DeviceController extends Controller
         ]);
     }
 
+    /** Update a session price only for a device owned by the authenticated account. */
+    public function updatePrice(Request $request)
+    {
+        $data = $request->validate([
+            'device_uuid' => ['required', 'string'],
+            'session_price' => ['present', 'nullable', 'integer', 'min:1'],
+        ]);
+
+        $device = $request->user()->devices()
+            ->where('device_uuid', $data['device_uuid'])->first();
+
+        if (!$device) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Device tidak ditemukan atau bukan milik akun ini.',
+            ], 404);
+        }
+
+        $device->session_price = $data['session_price'] ?? null;
+        $device->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Harga sesi perangkat berhasil diperbarui.',
+            'data' => [
+                'device_uuid' => $device->device_uuid,
+                'session_price' => $device->session_price,
+            ],
+        ]);
+    }
+
     public function config(Request $request)
     {
         $request->validate(['device_uuid' => 'required|string']);
@@ -68,6 +99,7 @@ class DeviceController extends Controller
                     'device_uuid' => $device->device_uuid,
                     'name' => $device->computer_name,
                     'status' => $device->status,
+                    'session_price' => $device->session_price,
                 ],
                 'frames' => $frames,
             ],
@@ -96,6 +128,7 @@ class DeviceController extends Controller
                     'device_uuid' => $device->device_uuid,
                     'name' => $device->computer_name,
                     'status' => $device->status,
+                    'session_price' => $device->session_price,
                 ],
                 'frames' => $frames,
             ],

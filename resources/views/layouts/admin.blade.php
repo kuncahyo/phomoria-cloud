@@ -14,6 +14,7 @@
 <div class="sidebar-section">Workspace</div>
 <a href="{{ route('admin') }}" class="sidebar-link">Dashboard</a>
 <a href="{{ route('admin.frames.index') }}" class="sidebar-link">Frames</a>
+<a href="{{ route('admin.devices.pricing') }}" class="sidebar-link">Harga Perangkat</a>
 <a href="{{ route('admin.frames.select') }}" class="sidebar-link">Pilih Frame</a>
 <a href="{{ route('admin.frames.create') }}" class="sidebar-link">Upload Frame</a>
 <div class="sidebar-user">

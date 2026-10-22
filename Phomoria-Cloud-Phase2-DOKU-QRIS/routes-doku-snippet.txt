@@ -1,0 +1,21 @@
+Tambahkan import ke routes/web.php:
+use App\Http\Controllers\Admin\DokuPaymentController;
+
+Tambahkan import ke routes/api.php:
+use App\Http\Controllers\Api\DokuWebhookController;
+use App\Http\Controllers\Api\PaymentController;
+
+Di dalam Route::middleware('auth')->group(...) pada routes/web.php:
+Route::get('/admin/doku', [DokuPaymentController::class, 'index'])->name('admin.doku.index');
+Route::post('/admin/doku', [DokuPaymentController::class, 'save'])->name('admin.doku.save');
+Route::post('/admin/doku/test/generate', [DokuPaymentController::class, 'testQr'])->name('admin.doku.test.generate');
+Route::get('/admin/doku/test/{publicId}', [DokuPaymentController::class, 'showTest'])->name('admin.doku.test');
+Route::get('/admin/doku/test/{publicId}/status', [DokuPaymentController::class, 'status'])->name('admin.doku.status');
+
+Di dalam Route::middleware('auth:sanctum')->group(...) pada routes/api.php:
+Route::post('/payments', [PaymentController::class, 'store']);
+Route::get('/payments/{publicId}', [PaymentController::class, 'show']);
+Route::post('/payments/{publicId}/cancel', [PaymentController::class, 'cancel']);
+
+Di luar auth:sanctum, tambahkan webhook:
+Route::post('/webhooks/doku/qris', [DokuWebhookController::class, 'handle'])->name('api.webhooks.doku.qris');
