@@ -1,0 +1,9 @@
+// Keep the existing authenticated API routes. Add this line inside the auth:sanctum group:
+Route::post('/payments/{publicId}/refresh', [PaymentController::class, 'refresh'])->middleware('throttle:1,1');
+
+// Replace the old SNAP webhook route with this public non-SNAP Checkout notification route:
+Route::post('/webhooks/doku/checkout', [DokuWebhookController::class, 'handle'])
+    ->name('api.webhooks.doku.checkout');
+
+// Remove the old SNAP-only cancellation route if it still exists:
+// Route::post('/payments/{publicId}/cancel', [PaymentController::class, 'cancel']);

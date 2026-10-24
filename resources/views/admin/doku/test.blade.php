@@ -1,17 +1,25 @@
 @extends('layouts.admin')
-@section('title', 'Uji QRIS DOKU')
+@section('title', 'Uji DOKU Checkout')
 @section('content')
 <style>
-.page{padding:54px 0 80px}.card{max-width:680px;margin:0 auto;background:#141416;border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:28px;text-align:center}.qr{display:flex;justify-content:center;margin:25px 0}.qr canvas,.qr img{background:#fff;padding:16px;border-radius:10px}.muted{color:#8d8d96}.status{font-size:20px;font-weight:800;margin:12px 0}.back{color:#aaa}
+.checkout-test{max-width:700px;margin:50px auto;padding:28px;border:1px solid rgba(255,255,255,.1);border-radius:16px;background:#141416}.checkout-muted{color:#92929b;line-height:1.6}.checkout-status{font-size:20px;font-weight:800;margin:18px 0}.checkout-link{display:inline-flex;padding:13px 20px;border-radius:10px;background:#fff;color:#111;text-decoration:none;font-weight:800;margin:12px 0}.checkout-link[aria-disabled="true"]{opacity:.45;pointer-events:none}
 </style>
-<div class="page"><div class="card"><h1>QRIS DOKU Sandbox</h1><p class="muted">{{ $transaction->merchant_reference }}</p><h2>Rp {{ number_format($transaction->amount,0,',','.') }}</h2><div id="qrcode" class="qr"></div><div id="status" class="status">{{ $transaction->status }}</div><p class="muted">Scan QRIS menggunakan skenario pembayaran sandbox DOKU.</p><a class="back" href="{{ route('admin.doku.index') }}">← Kembali</a></div></div>
+<div class="checkout-test">
+    <h1>DOKU Checkout Sandbox</h1>
+    <p class="checkout-muted">Invoice: {{ $transaction->merchant_reference }}</p>
+    <h2>Rp {{ number_format($transaction->amount, 0, ',', '.') }}</h2>
+    <div class="checkout-status" id="payment-status">{{ $transaction->status }}</div>
+    <p class="checkout-muted">Klik tombol di bawah untuk membuka halaman pembayaran yang di-host oleh DOKU. Status PAID hanya ditetapkan setelah notifikasi terverifikasi atau Check Status API mengonfirmasi keberhasilan.</p>
+    <a class="checkout-link" href="{{ $transaction->checkout_url ?: '#' }}" target="_blank" rel="noopener" @if(!$transaction->checkout_url) aria-disabled="true" @endif>Buka DOKU Checkout</a>
+    <p class="checkout-muted" id="last-checked">Status diperbarui otomatis setiap 8 detik setelah batas pengecekan DOKU.</p>
+    <a href="{{ route('admin.doku.index') }}" class="checkout-muted">← Kembali ke konfigurasi</a>
+</div>
 @endsection
 @section('scripts')
-<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <script>
-new QRCode(document.getElementById('qrcode'), {text:@json($transaction->qr_content), width:280, height:280, correctLevel:QRCode.CorrectLevel.M});
-const status=document.getElementById('status');
-async function poll(){try{const r=await fetch(@json(route('admin.doku.status',$transaction->public_id)),{headers:{'Accept':'application/json'}});const j=await r.json();status.textContent=j.status;if(j.status==='PENDING')setTimeout(poll,5000);}catch(e){setTimeout(poll,7000)}}
-if(@json($transaction->status)==='PENDING')setTimeout(poll,3000);
+const statusNode=document.getElementById('payment-status');
+const statusUrl=@json(route('admin.doku.status',$transaction->public_id));
+async function refreshStatus(){try{const response=await fetch(statusUrl,{headers:{'Accept':'application/json'}});const data=await response.json();statusNode.textContent=data.status;document.getElementById('last-checked').textContent='Terakhir diperiksa: '+new Date().toLocaleTimeString();if(['PAID','EXPIRED','CANCELLED'].includes(data.status))return;}catch(e){}setTimeout(refreshStatus,60000);}
+if(@json($transaction->status)==='PENDING')setTimeout(refreshStatus,60000);
 </script>
 @endsection

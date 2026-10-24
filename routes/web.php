@@ -113,11 +113,21 @@ Route::middleware('auth')->group(function () {
         '/admin/frames/{frame}',
         [FrameController::class, 'destroy']
     )->name('admin.frames.destroy');
-    
-    //doku
-    Route::get('/admin/doku', [DokuPaymentController::class, 'index'])->name('admin.doku.index');
-    Route::post('/admin/doku', [DokuPaymentController::class, 'save'])->name('admin.doku.save');
-    Route::post('/admin/doku/test/generate', [DokuPaymentController::class, 'testQr'])->name('admin.doku.test.generate');
-    Route::get('/admin/doku/test/{publicId}', [DokuPaymentController::class, 'showTest'])->name('admin.doku.test');
-    Route::get('/admin/doku/test/{publicId}/status', [DokuPaymentController::class, 'status'])->name('admin.doku.status');
+
+// DOKU Checkout
+    Route::get('/admin/doku', [DokuPaymentController::class, 'index'])
+        ->name('admin.doku.index');
+
+    Route::post('/admin/doku', [DokuPaymentController::class, 'save'])
+        ->name('admin.doku.save');
+
+    Route::post('/admin/doku/test/generate', [DokuPaymentController::class, 'testGenerate'])
+        ->name('admin.doku.test.generate');
+
+    Route::get('/admin/doku/test/{publicId}', [DokuPaymentController::class, 'showTest'])
+        ->name('admin.doku.test');
+
+    Route::get('/admin/doku/test/{publicId}/status', [DokuPaymentController::class, 'status'])
+        ->middleware('throttle:1,1')
+        ->name('admin.doku.status');
 });

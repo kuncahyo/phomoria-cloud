@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 
 class PaymentAccount extends Model
@@ -15,7 +16,6 @@ class PaymentAccount extends Model
     protected function casts(): array
     {
         return [
-            'client_secret' => 'encrypted',
             'merchant_private_key' => 'encrypted',
             'doku_public_key' => 'encrypted',
             'merchant_public_key' => 'encrypted',
@@ -23,6 +23,17 @@ class PaymentAccount extends Model
         ];
     }
 
+protected function clientSecret(): Attribute
+{
+    return Attribute::make(
+        get: fn ($value) => $value === null || $value === ''
+            ? null
+            : decrypt($value),
+        set: fn ($value) => $value === null || $value === ''
+            ? null
+            : encrypt($value),
+    );
+}
     public function user() { return $this->belongsTo(User::class); }
     public function transactions() { return $this->hasMany(PaymentTransaction::class); }
 }

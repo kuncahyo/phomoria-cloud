@@ -24,10 +24,14 @@ Route::middleware("auth:sanctum")->group(function () {
     Route::delete("device/frames/{frame}", [DeviceController::class, "detachFrame"]);
     Route::get("device/frames/{frame}/download", [DeviceController::class, "downloadFrame"]);
     Route::get("device/config", [DeviceController::class, "config"]);
-    //Doku
+
+    // DOKU Checkout
     Route::post('/payments', [PaymentController::class, 'store']);
     Route::get('/payments/{publicId}', [PaymentController::class, 'show']);
-    Route::post('/payments/{publicId}/cancel', [PaymentController::class, 'cancel']);
+    Route::post('/payments/{publicId}/refresh', [PaymentController::class, 'refresh'])
+        ->middleware('throttle:1,1');
 });
 
-Route::post('/webhooks/doku/qris', [DokuWebhookController::class, 'handle'])->name('api.webhooks.doku.qris');
+// Webhook DOKU publik, tanpa auth:sanctum.
+Route::post('/webhooks/doku/checkout', [DokuWebhookController::class, 'handle'])
+    ->name('api.webhooks.doku.checkout');

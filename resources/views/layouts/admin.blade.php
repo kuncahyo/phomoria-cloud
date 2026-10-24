@@ -17,6 +17,9 @@
 <a href="{{ route('admin.devices.pricing') }}" class="sidebar-link">Harga Perangkat</a>
 <a href="{{ route('admin.frames.select') }}" class="sidebar-link">Pilih Frame</a>
 <a href="{{ route('admin.frames.create') }}" class="sidebar-link">Upload Frame</a>
+<div style="height: 24px;"></div>
+<div class="sidebar-section">Setting</div>
+<a href="{{ route('admin.doku.index') }}" class="sidebar-link">DOKU</a>
 <div class="sidebar-user">
 <div class="sidebar-user-name">{{ auth()->user()->name }}</div>
 <form method="POST" action="{{ route('logout') }}">@csrf<button type="submit" class="logout-button">Logout</button></form>
