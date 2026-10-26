@@ -35,4 +35,9 @@ class PhotoSession extends Model
     {
         return $this->hasMany(Photo::class);
     }
+
+    public function assets()
+    {
+        return $this->hasMany(PhotoSessionAsset::class);
+    }
 }
