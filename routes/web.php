@@ -30,6 +30,16 @@ Route::get(
 Route::get('/gallery', [GalleryController::class, 'index'])
     ->name('gallery.index');
 
+// Public session URLs use a non-reversible device fingerprint, date, and daily sequence.
+Route::get('/gallery/{device_hash}/{session_date}/{sequence}/status', [GalleryController::class, 'statusByPublicId'])
+    ->where(['device_hash' => '[a-f0-9]{8}', 'session_date' => '[0-9]{8}', 'sequence' => '[0-9]{6}']);
+Route::get('/gallery/{device_hash}/{session_date}/{sequence}/download-result', [GalleryController::class, 'downloadResultByPublicId'])
+    ->where(['device_hash' => '[a-f0-9]{8}', 'session_date' => '[0-9]{8}', 'sequence' => '[0-9]{6}']);
+Route::get('/gallery/{device_hash}/{session_date}/{sequence}/download', [GalleryController::class, 'downloadZipByPublicId'])
+    ->where(['device_hash' => '[a-f0-9]{8}', 'session_date' => '[0-9]{8}', 'sequence' => '[0-9]{6}']);
+Route::get('/gallery/{device_hash}/{session_date}/{sequence}', [GalleryController::class, 'showByPublicId'])
+    ->where(['device_hash' => '[a-f0-9]{8}', 'session_date' => '[0-9]{8}', 'sequence' => '[0-9]{6}']);
+
 Route::get('/gallery/{session_code}/status', [GalleryController::class, 'status'])->name('gallery.status');
 Route::get('/gallery/{session_code}', [GalleryController::class, 'show']);
 
