@@ -11,189 +11,127 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
-
 class SessionUploadController extends Controller
 {
-
     public function upload(Request $request)
     {
         $request->validate([
-
             'device_uuid' => 'required',
-
-            'frame_name' => 'required'
-
+            'frame_name' => 'required',
+            'live_photo' => 'nullable|file|mimetypes:video/mp4|max:102400',
+            'gif' => 'nullable|file|mimetypes:image/gif|max:51200',
         ]);
 
-        if (count($request->allFiles()) == 0) {
-
+        $files = $request->allFiles();
+        if (count($files) === 0) {
             return response()->json([
-
-                "success" => false,
-
-                "message" => "Tidak ada foto yang diupload."
-
+                'success' => false,
+                'message' => 'Tidak ada foto yang diupload.',
             ], 422);
-
         }
 
-        $device = Device::where(
-                'device_uuid',
-                $request->device_uuid
-                )->first();
-
+        $device = Device::where('device_uuid', $request->device_uuid)->first();
         if (!$device) {
-
-        return response()->json([
-
-                "success" => false,
-
-                "message" => "Device tidak terdaftar."
-
-        ],404);
-
+            return response()->json([
+                'success' => false,
+                'message' => 'Device tidak terdaftar.',
+            ], 404);
         }
 
         DB::beginTransaction();
 
         try {
+            $today = Carbon::now();
+            $date = $today->format('Ymd');
+            $countToday = PhotoSession::whereDate('created_at', $today)->count() + 1;
+            $sessionCode = sprintf('PHO-%s-%06d', $date, $countToday);
 
-            $today =
-                Carbon::now();
+            // Count only original captured photos. Result, GIF, and Live Photo are assets.
+            $photoKeys = array_filter(array_keys($files), fn ($key) => preg_match('/^photo\d+$/', (string) $key));
+            $session = PhotoSession::create([
+                'user_id' => $request->user()->id,
+                'device_id' => $device->id,
+                'session_code' => $sessionCode,
+                'frame_name' => $request->frame_name,
+                'photo_count' => count($photoKeys),
+                'status' => 'UPLOADING',
+                'expired_at' => now()->addDays(30),
+            ]);
 
-            $date =
-                $today->format("Ymd");
+            $folder = 'sessions/' . $today->format('Y') . '/' . $today->format('m') . '/' . $today->format('d') . '/' . $sessionCode;
 
-            $countToday =
-                    PhotoSession::whereDate(
-                            "created_at",
-                            $today
-                    )->count() + 1;
+            // Current desktop contract uses named multipart fields. Keep a positional
+            // fallback for older clients that sent arbitrary file field names.
+            if (isset($files['result'])) {
+                $result = $files['result'];
+                $this->storePhoto($session, $folder, $result, 'result.' . ($result->getClientOriginalExtension() ?: 'png'), true, false, 0);
 
-            $sessionCode =
-                    sprintf(
-                            "PHO-%s-%06d",
-                            $date,
-                            $countToday
-                    );
+                if (isset($files['gif'])) {
+                    $gif = $files['gif'];
+                    $this->storePhoto($session, $folder, $gif, 'animation.gif', false, false, 9000);
+                }
+                if (isset($files['live_photo'])) {
+                    $livePhoto = $files['live_photo'];
+                    $this->storePhoto($session, $folder, $livePhoto, 'live_photo.mp4', false, true, 10000);
+                }
 
-            $session =
-                    PhotoSession::create([
-
-                        "user_id" =>
-                                $request
-                                        ->user()
-                                        ->id,
-
-                        "device_id"=>
-                                $device->id,
-
-                        "session_code" =>
-                                $sessionCode,
-
-                        "frame_name" =>
-                                $request
-                                        ->frame_name,
-
-                        "photo_count" =>
-                                count(
-                                    $request->allFiles()
-                                ),
-
-                        "status" =>
-                                "UPLOADING",
-
-                        "expired_at" =>
-                                now()->addDays(30)
-
-                    ]);
-
-            $folder =
-                    "sessions/"
-                    .$today->format("Y")
-                    ."/"
-                    .$today->format("m")
-                    ."/"
-                    .$today->format("d")
-                    ."/"
-                    .$sessionCode;
-
-            $allFiles =
-                array_values(
-                    $request->allFiles()
-                );
-
-            foreach($allFiles as $index=>$file){
-
-                $extension =
-                        $file
-                                ->getClientOriginalExtension();
-
-                $filename =
-                        $index==0
-                        ? "result.".$extension
-                        : "photo".$index.".".$extension;
-
-                Storage::disk("public")
-                        ->putFileAs(
-                                $folder,
-                                $file,
-                                $filename
-                        );
-
-                Photo::create([
-                    "photo_session_id" => $session->id,
-                    "filename" => $filename,
-                    "path" => $folder . "/" . $filename,
-                    "original_name" => $file->getClientOriginalName(),
-                    "is_result" => $index == 0,
-                    "sort_order" => $index,
-                    "file_size" => $file->getSize()
-                ]);
-
+                $photoKeys = array_values(array_filter(array_keys($files), fn ($key) => preg_match('/^photo\d+$/', (string) $key)));
+                usort($photoKeys, fn ($a, $b) => (int) substr($a, 5) <=> (int) substr($b, 5));
+                foreach ($photoKeys as $key) {
+                    $index = (int) substr($key, 5);
+                    $file = $files[$key];
+                    $extension = $file->getClientOriginalExtension() ?: 'jpg';
+                    $this->storePhoto($session, $folder, $file, 'photo' . $index . '.' . $extension, false, false, $index);
+                }
+            } else {
+                foreach (array_values($files) as $index => $file) {
+                    $extension = $file->getClientOriginalExtension() ?: 'jpg';
+                    $filename = $index === 0 ? 'result.' . $extension : 'photo' . $index . '.' . $extension;
+                    $this->storePhoto($session, $folder, $file, $filename, $index === 0, false, $index);
+                }
+                // Legacy clients have no distinct Live Photo field; do not reinterpret
+                // an arbitrary positional upload as video.
             }
 
-            $session->status =
-                    "COMPLETED";
-
+            $session->status = 'COMPLETED';
             $session->save();
-
             DB::commit();
 
             return response()->json([
-
-                "success"=>true,
-
-                "session"=>[
-
-                    "id"=>$session->id,
-
-                    "session_code"=>$session->session_code,
-
-                    "gallery_url"=>
-                            url(
-                                "/gallery/"
-                                .$session->session_code
-                            )
-
-                ]
-
+                'success' => true,
+                'session' => [
+                    'id' => $session->id,
+                    'session_code' => $session->session_code,
+                    'gallery_url' => url('/gallery/' . $session->session_code),
+                ],
             ]);
-
-        }catch(\Exception $e){
-
+        } catch (\Throwable $e) {
             DB::rollBack();
-
+            if (isset($folder)) {
+                Storage::disk('public')->deleteDirectory($folder);
+            }
             return response()->json([
-
-                "success"=>false,
-
-                "message"=>$e->getMessage()
-
-            ],500);
-
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 500);
         }
-
     }
 
+    private function storePhoto(PhotoSession $session, string $folder, $file, string $filename, bool $isResult, bool $isLivePhoto, int $sortOrder): void
+    {
+        $storedPath = Storage::disk('public')->putFileAs($folder, $file, $filename);
+        if ($storedPath === false) {
+            throw new \RuntimeException('Gagal menyimpan file upload: ' . $filename);
+        }
+
+        Photo::create([
+            'photo_session_id' => $session->id,
+            'filename' => $filename,
+            'original_name' => $file->getClientOriginalName(),
+            'is_result' => $isResult,
+            'is_live_photo' => $isLivePhoto,
+            'sort_order' => $sortOrder,
+            'file_size' => $file->getSize(),
+        ]);
+    }
 }
