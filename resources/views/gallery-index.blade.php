@@ -57,8 +57,18 @@
         </thead>
         <tbody>
             @forelse ($sessions as $session)
+                @php
+                    $publicParts = explode('-', $session->session_code);
+                    $hasPublicId = count($publicParts) === 3
+                        && preg_match('/^[a-f0-9]{8}$/', $publicParts[0])
+                        && preg_match('/^\\d{8}$/', $publicParts[1])
+                        && preg_match('/^\\d{6}$/', $publicParts[2]);
+                    $sessionUrl = $hasPublicId
+                        ? url('/gallery/' . $publicParts[0] . '/' . $publicParts[1] . '/' . $publicParts[2])
+                        : url('/gallery/' . $session->session_code);
+                @endphp
                 <tr>
-                    <td><a href="{{ url('/gallery/' . $session->session_code) }}">{{ $session->session_code }}</a></td>
+                    <td><a href="{{ $sessionUrl }}">{{ $session->session_code }}</a></td>
                     <td>{{ $session->device?->computer_name ?: 'Device tidak diketahui' }}</td>
                     <td>{{ $session->created_at?->format('d M Y, H:i:s') }}</td>
                     <td>{{ $session->status }}</td>
