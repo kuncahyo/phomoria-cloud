@@ -14,6 +14,129 @@ use Illuminate\Database\QueryException;
 
 class SessionUploadController extends Controller
 {
+    public function reserve(Request $request)
+    {
+        $data = $request->validate([
+            'device_uuid' => ['required', 'uuid'],
+            'client_session_id' => ['required', 'uuid'],
+            'frame_name' => ['required', 'string', 'max:255'],
+            'assets' => ['required', 'array', 'min:1'],
+            'assets.*.asset_key' => ['required', 'string', 'max:100'],
+            'assets.*.asset_type' => ['required', 'in:result,gif,live_photo,photo'],
+            'assets.*.filename' => ['required', 'string', 'max:255'],
+            'assets.*.sort_order' => ['nullable', 'integer', 'min:0'],
+            'assets.*.size' => ['nullable', 'integer', 'min:0'],
+        ]);
+
+        $device = Device::where('device_uuid', $data['device_uuid'])
+            ->where('user_id', $request->user()->id)->first();
+        if (!$device) return response()->json(['success' => false, 'message' => 'Device tidak terdaftar untuk akun ini.'], 404);
+
+        $keys = array_column($data['assets'], 'asset_key');
+        if (count($keys) !== count(array_unique($keys)) ||
+            !collect($data['assets'])->contains(fn ($a) => $a['asset_type'] === 'result')) {
+            return response()->json(['success' => false, 'message' => 'Manifest aset tidak valid atau tidak memiliki result.'], 422);
+        }
+
+        $session = DB::transaction(function () use ($device, $data) {
+            $session = PhotoSession::where('device_id', $device->id)
+                ->where('client_session_id', $data['client_session_id'])->lockForUpdate()->first();
+
+            if (!$session) {
+                $now = now();
+                $number = PhotoSession::where('device_id', $device->id)
+                    ->whereDate('created_at', $now->toDateString())->count() + 1;
+                $session = PhotoSession::create([
+                    'user_id' => $device->user_id,
+                    'device_id' => $device->id,
+                    'client_session_id' => $data['client_session_id'],
+                    'session_code' => sprintf('PHO-%s-%06d', $now->format('Ymd'), $number),
+                    'frame_name' => $data['frame_name'],
+                    'photo_count' => collect($data['assets'])->where('asset_type', 'photo')->count(),
+                    'status' => 'UPLOADING',
+                    'expired_at' => now()->addDays(30),
+                ]);
+            }
+
+            foreach ($data['assets'] as $asset) {
+                \\App\\Models\\PhotoSessionAsset::firstOrCreate(
+                    ['photo_session_id' => $session->id, 'asset_key' => $asset['asset_key']],
+                    [
+                        'asset_type' => $asset['asset_type'],
+                        'filename' => basename($asset['filename']),
+                        'sort_order' => $asset['sort_order'] ?? 0,
+                        'expected_size' => $asset['size'] ?? null,
+                        'status' => 'PENDING',
+                    ]
+                );
+            }
+            return $session->load('assets');
+        });
+
+        return response()->json(['success' => true, 'session' => [
+            'id' => $session->id,
+            'session_code' => $session->session_code,
+            'gallery_url' => url('/gallery/' . $session->session_code),
+            'assets' => $session->assets->map(fn ($a) => [
+                'asset_key' => $a->asset_key, 'asset_type' => $a->asset_type,
+                'filename' => $a->filename, 'status' => $a->status,
+            ]),
+        ]]);
+    }
+
+    public function uploadAsset(Request $request)
+    {
+        $data = $request->validate([
+            'device_uuid' => ['required', 'uuid'],
+            'client_session_id' => ['required', 'uuid'],
+            'asset_key' => ['required', 'string', 'max:100'],
+            'file' => ['required', 'file', 'max:102400'],
+        ]);
+        $device = Device::where('device_uuid', $data['device_uuid'])
+            ->where('user_id', $request->user()->id)->firstOrFail();
+        $session = PhotoSession::where('device_id', $device->id)
+            ->where('client_session_id', $data['client_session_id'])->firstOrFail();
+        $asset = \\App\\Models\\PhotoSessionAsset::where('photo_session_id', $session->id)
+            ->where('asset_key', $data['asset_key'])->firstOrFail();
+
+        if ($asset->status === 'UPLOADED') {
+            return response()->json(['success' => true, 'already_uploaded' => true]);
+        }
+
+        $file = $request->file('file');
+        $folder = 'sessions/' . $session->created_at->format('Y') . '/'
+            . $session->created_at->format('m') . '/' . $session->created_at->format('d') . '/' . $session->session_code;
+        if (!Storage::disk('public')->putFileAs($folder, $file, $asset->filename)) {
+            return response()->json(['success' => false, 'message' => 'Gagal menyimpan aset.'], 500);
+        }
+
+        DB::transaction(function () use ($asset, $session, $file) {
+            $locked = \\App\\Models\\PhotoSessionAsset::whereKey($asset->id)->lockForUpdate()->firstOrFail();
+            if ($locked->status !== 'UPLOADED') {
+                Photo::updateOrCreate(
+                    ['photo_session_id' => $session->id, 'filename' => $locked->filename],
+                    [
+                        'original_name' => $file->getClientOriginalName(),
+                        'is_result' => $locked->asset_type === 'result',
+                        'is_live_photo' => $locked->asset_type === 'live_photo',
+                        'sort_order' => $locked->sort_order,
+                        'file_size' => $file->getSize(),
+                    ]
+                );
+                $locked->status = 'UPLOADED';
+                $locked->original_name = $file->getClientOriginalName();
+                $locked->file_size = $file->getSize();
+                $locked->save();
+            }
+            $pending = \\App\\Models\\PhotoSessionAsset::where('photo_session_id', $session->id)
+                ->where('status', 'PENDING')->exists();
+            $session->status = $pending ? 'UPLOADING' : 'COMPLETED';
+            $session->save();
+        });
+
+        return response()->json(['success' => true, 'already_uploaded' => false]);
+    }
+
     public function upload(Request $request)
     {
         $request->validate([
