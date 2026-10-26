@@ -1,23 +1,45 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\\Http\\Controllers;
 
-use App\Models\Device;
-use App\Models\PhotoSession;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
+use App\\Models\\Device;
+use App\\Models\\PhotoSession;
+use Illuminate\\Http\\Request;
+use Illuminate\\Support\\Facades\\Storage;
 use ZipArchive;
 
 class GalleryController extends Controller
 {
     public function index(Request $request)
     {
-        $selectedDeviceId = $request->query('device_id');
-        $devices = Device::query()->whereHas('photoSessions')->orderBy('computer_name')->get(['id', 'computer_name']);
-        $sessions = PhotoSession::query()->with('device')
-            ->when($selectedDeviceId, fn ($query) => $query->where('device_id', $selectedDeviceId))
-            ->orderByDesc('created_at')->orderByDesc('id')->paginate(30)->withQueryString();
-        return view('gallery-index', compact('sessions', 'devices', 'selectedDeviceId'));
+        $filters = $request->validate([
+            'device_id' => ['nullable', 'integer', 'exists:devices,id'],
+            'from' => ['nullable', 'date'],
+            'to' => ['nullable', 'date', 'after_or_equal:from'],
+        ]);
+
+        $selectedDeviceId = $filters['device_id'] ?? '';
+        $from = $filters['from'] ?? '';
+        $to = $filters['to'] ?? '';
+
+        $devices = Device::query()
+            ->whereHas('photoSessions')
+            ->orderBy('computer_name')
+            ->get(['id', 'computer_name']);
+
+        $sessions = PhotoSession::query()
+            ->with('device')
+            ->when($selectedDeviceId !== '', fn ($query) => $query->where('device_id', $selectedDeviceId))
+            ->when($from !== '', fn ($query) => $query->where('created_at', '>=', $from))
+            ->when($to !== '', fn ($query) => $query->where('created_at', '<=', $to))
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->paginate(30)
+            ->withQueryString();
+
+        return view('gallery-index', compact(
+            'sessions', 'devices', 'selectedDeviceId', 'from', 'to'
+        ));
     }
 
     public function show($sessionCode)
