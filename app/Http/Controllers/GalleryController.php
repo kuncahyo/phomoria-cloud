@@ -44,8 +44,22 @@ class GalleryController extends Controller
 
     public function show($sessionCode)
     {
-        $session = PhotoSession::with('photos')->where('session_code', $sessionCode)->firstOrFail();
+        $session = PhotoSession::with(['photos', 'assets'])->where('session_code', $sessionCode)->firstOrFail();
         return view('gallery', compact('session'));
+    }
+
+    public function status($sessionCode)
+    {
+        $session = PhotoSession::with('assets')->where('session_code', $sessionCode)->firstOrFail();
+        return response()->json([
+            'status' => $session->status,
+            'assets' => $session->assets->map(fn ($asset) => [
+                'asset_key' => $asset->asset_key,
+                'asset_type' => $asset->asset_type,
+                'filename' => $asset->filename,
+                'status' => $asset->status,
+            ]),
+        ]);
     }
 
     public function downloadResult($sessionCode)
