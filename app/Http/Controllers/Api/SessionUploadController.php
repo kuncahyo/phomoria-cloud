@@ -109,6 +109,15 @@ class SessionUploadController extends Controller
         }
 
         $file = $request->file('file');
+        if ($asset->expected_size !== null && (int) $file->getSize() !== (int) $asset->expected_size) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Ukuran file tidak sesuai dengan manifest sesi.',
+                'expected_size' => (int) $asset->expected_size,
+                'received_size' => (int) $file->getSize(),
+            ], 422);
+        }
+
         $folder = 'sessions/' . $session->created_at->format('Y') . '/'
             . $session->created_at->format('m') . '/' . $session->created_at->format('d') . '/' . $session->session_code;
         if (!Storage::disk('public')->putFileAs($folder, $file, $asset->filename)) {
