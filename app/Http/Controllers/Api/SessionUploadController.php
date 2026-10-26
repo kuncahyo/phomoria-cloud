@@ -39,18 +39,22 @@ class SessionUploadController extends Controller
         }
 
         $session = DB::transaction(function () use ($device, $data) {
-            $session = PhotoSession::where('device_id', $device->id)
+            // Serialize daily sequence allocation for this device. Different
+            // devices have independent sequences and cannot collide.
+            $lockedDevice = Device::whereKey($device->id)->lockForUpdate()->firstOrFail();
+            $session = PhotoSession::where('device_id', $lockedDevice->id)
                 ->where('client_session_id', $data['client_session_id'])->lockForUpdate()->first();
 
             if (!$session) {
                 $now = now();
-                $number = PhotoSession::where('device_id', $device->id)
+                $number = PhotoSession::where('device_id', $lockedDevice->id)
                     ->whereDate('created_at', $now->toDateString())->count() + 1;
+                $deviceHash = substr(hash('sha256', strtolower($lockedDevice->device_uuid)), 0, 8);
                 $session = PhotoSession::create([
-                    'user_id' => $device->user_id,
-                    'device_id' => $device->id,
+                    'user_id' => $lockedDevice->user_id,
+                    'device_id' => $lockedDevice->id,
                     'client_session_id' => $data['client_session_id'],
-                    'session_code' => sprintf('PHO-%s-%06d', $now->format('Ymd'), $number),
+                    'session_code' => sprintf('%s-%s-%06d', $deviceHash, $now->format('Ymd'), $number),
                     'frame_name' => $data['frame_name'],
                     'photo_count' => collect($data['assets'])->where('asset_type', 'photo')->count(),
                     'status' => 'UPLOADING',
@@ -76,7 +80,7 @@ class SessionUploadController extends Controller
         return response()->json(['success' => true, 'session' => [
             'id' => $session->id,
             'session_code' => $session->session_code,
-            'gallery_url' => url('/gallery/' . $session->session_code),
+            'gallery_url' => $this->galleryUrlForSession($session),
             'assets' => $session->assets->map(fn ($a) => [
                 'asset_key' => $a->asset_key, 'asset_type' => $a->asset_type,
                 'filename' => $a->filename, 'status' => $a->status,
@@ -190,10 +194,13 @@ class SessionUploadController extends Controller
         DB::beginTransaction();
 
         try {
+            $lockedDevice = Device::whereKey($device->id)->lockForUpdate()->firstOrFail();
             $today = Carbon::now();
             $date = $today->format('Ymd');
-            $countToday = PhotoSession::whereDate('created_at', $today)->count() + 1;
-            $sessionCode = sprintf('PHO-%s-%06d', $date, $countToday);
+            $countToday = PhotoSession::where('device_id', $lockedDevice->id)
+                ->whereDate('created_at', $today->toDateString())->count() + 1;
+            $deviceHash = substr(hash('sha256', strtolower($lockedDevice->device_uuid)), 0, 8);
+            $sessionCode = sprintf('%s-%s-%06d', $deviceHash, $date, $countToday);
 
             $photoKeys = array_filter(
                 array_keys($files),
@@ -294,6 +301,16 @@ class SessionUploadController extends Controller
         }
     }
 
+    private function galleryUrlForSession(PhotoSession $session): string
+    {
+        if (preg_match('/^([a-f0-9]{8})-(\\d{8})-(\\d{6})$/', $session->session_code, $matches)) {
+            return url('/gallery/' . $matches[1] . '/' . $matches[2] . '/' . $matches[3]);
+        }
+
+        // Keep compatibility for historical session codes.
+        return url('/gallery/' . $session->session_code);
+    }
+
     private function successResponse(PhotoSession $session)
     {
         return response()->json([
@@ -301,7 +318,7 @@ class SessionUploadController extends Controller
             'session' => [
                 'id' => $session->id,
                 'session_code' => $session->session_code,
-                'gallery_url' => url('/gallery/' . $session->session_code),
+                'gallery_url' => $this->galleryUrlForSession($session),
             ],
         ]);
     }
