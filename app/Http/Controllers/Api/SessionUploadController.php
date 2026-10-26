@@ -115,10 +115,13 @@ class SessionUploadController extends Controller
         }
 
         DB::transaction(function () use ($asset, $session, $file) {
+            // Serialize completion checks per session so simultaneous asset
+            // uploads cannot leave the session stuck in UPLOADING.
+            $lockedSession = PhotoSession::whereKey($session->id)->lockForUpdate()->firstOrFail();
             $locked = \\App\\Models\\PhotoSessionAsset::whereKey($asset->id)->lockForUpdate()->firstOrFail();
             if ($locked->status !== 'UPLOADED') {
                 Photo::updateOrCreate(
-                    ['photo_session_id' => $session->id, 'filename' => $locked->filename],
+                    ['photo_session_id' => $lockedSession->id, 'filename' => $locked->filename],
                     [
                         'original_name' => $file->getClientOriginalName(),
                         'is_result' => $locked->asset_type === 'result',
@@ -132,10 +135,10 @@ class SessionUploadController extends Controller
                 $locked->file_size = $file->getSize();
                 $locked->save();
             }
-            $pending = \\App\\Models\\PhotoSessionAsset::where('photo_session_id', $session->id)
+            $pending = \\App\\Models\\PhotoSessionAsset::where('photo_session_id', $lockedSession->id)
                 ->where('status', 'PENDING')->exists();
-            $session->status = $pending ? 'UPLOADING' : 'COMPLETED';
-            $session->save();
+            $lockedSession->status = $pending ? 'UPLOADING' : 'COMPLETED';
+            $lockedSession->save();
         });
 
         return response()->json(['success' => true, 'already_uploaded' => false]);
