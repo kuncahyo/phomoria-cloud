@@ -93,7 +93,11 @@
     @if($result)
         <div style="margin-top:25px;">
             <a href="{{ $galleryBaseUrl . '/download-result' }}">Download Result</a>
-            <a href="{{ $galleryBaseUrl . '/download' }}" style="background:#4CAF50;">Download Semua Foto (ZIP)</a>
+            @if($session->status === 'COMPLETED')
+                <a href="{{ $galleryBaseUrl . '/download' }}" style="background:#4CAF50;">Download Semua Foto (ZIP)</a>
+            @else
+                <p>Download semua foto akan tersedia setelah upload selesai.</p>
+            @endif
         </div>
     @endif
 
