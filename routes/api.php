@@ -18,6 +18,8 @@ Route::prefix("auth")->group(function () {
 Route::middleware("auth:sanctum")->group(function () {
     Route::post("device/register", [DeviceController::class, "register"]);
     Route::put("device/price", [DeviceController::class, "updatePrice"]);
+    Route::post("session/reserve", [SessionUploadController::class, "reserve"]);
+    Route::post("session/asset", [SessionUploadController::class, "uploadAsset"]);
     Route::post("session/upload", [SessionUploadController::class, "upload"]);
     Route::get("device/frames", [DeviceController::class, "frames"]);
     Route::post("device/frames/{frame}", [DeviceController::class, "attachFrame"]);
