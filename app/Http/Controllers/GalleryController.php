@@ -42,6 +42,31 @@ class GalleryController extends Controller
         ));
     }
 
+    private function publicSessionCode(string $deviceHash, string $sessionDate, string $sequence): string
+    {
+        return $deviceHash . '-' . $sessionDate . '-' . $sequence;
+    }
+
+    public function showByPublicId(string $deviceHash, string $sessionDate, string $sequence)
+    {
+        return $this->show($this->publicSessionCode($deviceHash, $sessionDate, $sequence));
+    }
+
+    public function statusByPublicId(string $deviceHash, string $sessionDate, string $sequence)
+    {
+        return $this->status($this->publicSessionCode($deviceHash, $sessionDate, $sequence));
+    }
+
+    public function downloadResultByPublicId(string $deviceHash, string $sessionDate, string $sequence)
+    {
+        return $this->downloadResult($this->publicSessionCode($deviceHash, $sessionDate, $sequence));
+    }
+
+    public function downloadZipByPublicId(string $deviceHash, string $sessionDate, string $sequence)
+    {
+        return $this->downloadZip($this->publicSessionCode($deviceHash, $sessionDate, $sequence));
+    }
+
     public function show($sessionCode)
     {
         $session = PhotoSession::with(['photos', 'assets'])->where('session_code', $sessionCode)->firstOrFail();
