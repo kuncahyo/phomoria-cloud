@@ -6,23 +6,19 @@ use Illuminate\Database\Eloquent\Model;
 
 class PhotoSession extends Model
 {
-
     protected $fillable = [
-
         'user_id',
         'device_id',
+        'client_session_id',
         'session_code',
         'frame_name',
         'photo_count',
         'status',
-        'expired_at'
-
+        'expired_at',
     ];
 
     protected $casts = [
-
-        'expired_at' => 'datetime'
-
+        'expired_at' => 'datetime',
     ];
 
     public function user()
@@ -39,5 +35,4 @@ class PhotoSession extends Model
     {
         return $this->hasMany(Photo::class);
     }
-
 }
