@@ -63,7 +63,7 @@ class SessionUploadController extends Controller
             }
 
             foreach ($data['assets'] as $asset) {
-                \\App\\Models\\PhotoSessionAsset::firstOrCreate(
+                PhotoSessionAsset::firstOrCreate(
                     ['photo_session_id' => $session->id, 'asset_key' => $asset['asset_key']],
                     [
                         'asset_type' => $asset['asset_type'],
@@ -100,7 +100,7 @@ class SessionUploadController extends Controller
             ->where('user_id', $request->user()->id)->firstOrFail();
         $session = PhotoSession::where('device_id', $device->id)
             ->where('client_session_id', $data['client_session_id'])->firstOrFail();
-        $asset = \\App\\Models\\PhotoSessionAsset::where('photo_session_id', $session->id)
+        $asset = PhotoSessionAsset::where('photo_session_id', $session->id)
             ->where('asset_key', $data['asset_key'])->firstOrFail();
 
         if ($asset->status === 'UPLOADED') {
@@ -118,7 +118,7 @@ class SessionUploadController extends Controller
             // Serialize completion checks per session so simultaneous asset
             // uploads cannot leave the session stuck in UPLOADING.
             $lockedSession = PhotoSession::whereKey($session->id)->lockForUpdate()->firstOrFail();
-            $locked = \\App\\Models\\PhotoSessionAsset::whereKey($asset->id)->lockForUpdate()->firstOrFail();
+            $locked = PhotoSessionAsset::whereKey($asset->id)->lockForUpdate()->firstOrFail();
             if ($locked->status !== 'UPLOADED') {
                 Photo::updateOrCreate(
                     ['photo_session_id' => $lockedSession->id, 'filename' => $locked->filename],
@@ -135,7 +135,7 @@ class SessionUploadController extends Controller
                 $locked->file_size = $file->getSize();
                 $locked->save();
             }
-            $pending = \\App\\Models\\PhotoSessionAsset::where('photo_session_id', $lockedSession->id)
+            $pending = PhotoSessionAsset::where('photo_session_id', $lockedSession->id)
                 ->where('status', 'PENDING')->exists();
             $lockedSession->status = $pending ? 'UPLOADING' : 'COMPLETED';
             $lockedSession->save();
