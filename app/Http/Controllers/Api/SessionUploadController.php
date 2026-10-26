@@ -10,6 +10,7 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Database\QueryException;
 
 class SessionUploadController extends Controller
 {
@@ -18,6 +19,8 @@ class SessionUploadController extends Controller
         $request->validate([
             'device_uuid' => 'required',
             'frame_name' => 'required',
+            // Optional only for compatibility with older desktop releases.
+            'client_session_id' => 'nullable|uuid',
             'live_photo' => 'nullable|file|mimetypes:video/mp4|max:102400',
             'gif' => 'nullable|file|mimetypes:image/gif|max:51200',
         ]);
@@ -38,6 +41,29 @@ class SessionUploadController extends Controller
             ], 404);
         }
 
+        $clientSessionId = $request->input('client_session_id');
+
+        // A retry after a lost HTTP response returns the original gallery.
+        if ($clientSessionId) {
+            $existing = PhotoSession::where('device_id', $device->id)
+                ->where('client_session_id', $clientSessionId)
+                ->first();
+
+            if ($existing && $existing->status === 'COMPLETED') {
+                return $this->successResponse($existing);
+            }
+
+            if ($existing) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Sesi dengan ID tersebut sedang diproses. Silakan coba lagi.',
+                    'session_code' => $existing->session_code,
+                ], 409);
+            }
+        }
+
+        $folder = null;
+
         DB::beginTransaction();
 
         try {
@@ -46,11 +72,15 @@ class SessionUploadController extends Controller
             $countToday = PhotoSession::whereDate('created_at', $today)->count() + 1;
             $sessionCode = sprintf('PHO-%s-%06d', $date, $countToday);
 
-            // Count only original captured photos. Result, GIF, and Live Photo are assets.
-            $photoKeys = array_filter(array_keys($files), fn ($key) => preg_match('/^photo\d+$/', (string) $key));
+            $photoKeys = array_filter(
+                array_keys($files),
+                fn ($key) => preg_match('/^photo\d+$/', (string) $key)
+            );
+
             $session = PhotoSession::create([
                 'user_id' => $request->user()->id,
                 'device_id' => $device->id,
+                'client_session_id' => $clientSessionId,
                 'session_code' => $sessionCode,
                 'frame_name' => $request->frame_name,
                 'photo_count' => count($photoKeys),
@@ -75,8 +105,12 @@ class SessionUploadController extends Controller
                     $this->storePhoto($session, $folder, $livePhoto, 'live_photo.mp4', false, true, 10000);
                 }
 
-                $photoKeys = array_values(array_filter(array_keys($files), fn ($key) => preg_match('/^photo\d+$/', (string) $key)));
+                $photoKeys = array_values(array_filter(
+                    array_keys($files),
+                    fn ($key) => preg_match('/^photo\d+$/', (string) $key)
+                ));
                 usort($photoKeys, fn ($a, $b) => (int) substr($a, 5) <=> (int) substr($b, 5));
+
                 foreach ($photoKeys as $key) {
                     $index = (int) substr($key, 5);
                     $file = $files[$key];
@@ -89,32 +123,64 @@ class SessionUploadController extends Controller
                     $filename = $index === 0 ? 'result.' . $extension : 'photo' . $index . '.' . $extension;
                     $this->storePhoto($session, $folder, $file, $filename, $index === 0, false, $index);
                 }
-                // Legacy clients have no distinct Live Photo field; do not reinterpret
-                // an arbitrary positional upload as video.
+                // Legacy clients have no distinct Live Photo field.
             }
 
             $session->status = 'COMPLETED';
             $session->save();
             DB::commit();
 
-            return response()->json([
-                'success' => true,
-                'session' => [
-                    'id' => $session->id,
-                    'session_code' => $session->session_code,
-                    'gallery_url' => url('/gallery/' . $session->session_code),
-                ],
-            ]);
+            return $this->successResponse($session);
         } catch (\Throwable $e) {
             DB::rollBack();
-            if (isset($folder)) {
+
+            // If a concurrent retry committed the same ID, return its gallery.
+            if ($clientSessionId) {
+                $committed = PhotoSession::where('device_id', $device->id)
+                    ->where('client_session_id', $clientSessionId)
+                    ->where('status', 'COMPLETED')
+                    ->first();
+
+                if ($committed) {
+                    return $this->successResponse($committed);
+                }
+            }
+
+            if ($folder) {
                 Storage::disk('public')->deleteDirectory($folder);
             }
+
+            if ($e instanceof QueryException && $clientSessionId) {
+                $conflict = PhotoSession::where('device_id', $device->id)
+                    ->where('client_session_id', $clientSessionId)
+                    ->first();
+
+                if ($conflict) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Sesi dengan ID tersebut sedang diproses. Silakan coba lagi.',
+                        'session_code' => $conflict->session_code,
+                    ], 409);
+                }
+            }
+
             return response()->json([
                 'success' => false,
                 'message' => $e->getMessage(),
             ], 500);
         }
+    }
+
+    private function successResponse(PhotoSession $session)
+    {
+        return response()->json([
+            'success' => true,
+            'session' => [
+                'id' => $session->id,
+                'session_code' => $session->session_code,
+                'gallery_url' => url('/gallery/' . $session->session_code),
+            ],
+        ]);
     }
 
     private function storePhoto(PhotoSession $session, string $folder, $file, string $filename, bool $isResult, bool $isLivePhoto, int $sortOrder): void
