@@ -18,7 +18,18 @@
 <body>
     <h1>Phomoria Gallery</h1>
     <h3>{{ $session->session_code }}</h3>
-    <div id="upload-state">{{ $session->status === 'COMPLETED' ? 'UPLOAD SELESAI' : 'UPLOAD SEDANG BERLANGSUNG' }}</div>
+    @php
+        $publicParts = explode('-', $session->session_code);
+        $hasPublicId = count($publicParts) === 3
+            && preg_match('/^[a-f0-9]{8}$/', $publicParts[0])
+            && preg_match('/^\\d{8}$/', $publicParts[1])
+            && preg_match('/^\\d{6}$/', $publicParts[2]);
+        $galleryBaseUrl = $hasPublicId
+            ? url('/gallery/' . $publicParts[0] . '/' . $publicParts[1] . '/' . $publicParts[2])
+            : url('/gallery/' . $session->session_code);
+        $uploadedAssetCount = $session->assets->where('status', 'UPLOADED')->count();
+    @endphp
+    <div id="upload-state">{{ $session->status === 'COMPLETED' ? 'UPLOAD SELESAI' : ($uploadedAssetCount > 0 ? 'UPLOAD SELESAI SEBAGIAN' : 'UPLOAD SEDANG BERLANGSUNG') }}</div>
 
     @php
         $photosByFilename = $session->photos->keyBy('filename');
@@ -81,20 +92,23 @@
 
     @if($result)
         <div style="margin-top:25px;">
-            <a href="{{ route('gallery.download.result', $session->session_code) }}">Download Result</a>
-            <a href="{{ route('gallery.download', $session->session_code) }}" style="background:#4CAF50;">Download Semua Foto (ZIP)</a>
+            <a href="{{ $galleryBaseUrl . '/download-result' }}">Download Result</a>
+            <a href="{{ $galleryBaseUrl . '/download' }}" style="background:#4CAF50;">Download Semua Foto (ZIP)</a>
         </div>
     @endif
 
     @if($session->status !== 'COMPLETED')
     <script>
         (function pollUploadStatus() {
-            fetch(@json(route('gallery.status', $session->session_code)), {cache: 'no-store'})
+            fetch(@json($galleryBaseUrl . '/status'), {cache: 'no-store'})
                 .then(response => response.ok ? response.json() : Promise.reject())
                 .then(data => {
                     const state = document.getElementById('upload-state');
+                    const hasUploadedAssets = Array.isArray(data.assets)
+                        && data.assets.some(asset => asset.status === 'UPLOADED');
                     if (state) state.textContent = data.status === 'COMPLETED'
-                        ? 'UPLOAD SELESAI' : 'UPLOAD SEDANG BERLANGSUNG';
+                        ? 'UPLOAD SELESAI'
+                        : (hasUploadedAssets ? 'UPLOAD SELESAI SEBAGIAN' : 'UPLOAD SEDANG BERLANGSUNG');
                     if (data.status !== 'COMPLETED') setTimeout(() => window.location.reload(), 5000);
                     else window.location.reload();
                 })
