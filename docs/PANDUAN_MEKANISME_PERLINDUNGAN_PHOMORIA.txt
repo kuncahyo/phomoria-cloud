@@ -316,11 +316,11 @@ Hapus PAYMENT_PROTECTION_TOKEN dan PAYMENT_PROTECTION_MARKER_PATH beserta
 komentar khusus fitur ini.
 
 F. Kembalikan public_html/sub/.htaccess:
-Hapus hanya blok yang dimulai dengan komentar:
+Hapus hanya dua blok yang ditambahkan:
+- RewriteRule ^payment-suspended\\.txt$ - [F,L]
+- Blok yang dimulai dengan komentar:
   # Payment-protection suspension marker for the /sub deployment.
-Termasuk dua RewriteCond pengecualian dan RewriteRule terkait. Hapus juga blok:
-  # Do not expose the suspension marker as a downloadable file.
-Termasuk blok <Files "payment-suspended.txt">.
+  Termasuk dua RewriteCond pengecualian dan RewriteRule terkait.
 Pertahankan seluruh aturan .htaccess lain yang sudah ada.
 
 G. Bersihkan konfigurasi hosting:
