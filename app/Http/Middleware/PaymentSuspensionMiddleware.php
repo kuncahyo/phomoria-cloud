@@ -1,10 +1,10 @@
 <?php
 
-namespace App\Http\Middleware;
+namespace App\\Http\\Middleware;
 
 use Closure;
-use Illuminate\Http\Request;
-use Symfony\Component\HttpFoundation\Response;
+use Illuminate\\Http\\Request;
+use Symfony\\Component\\HttpFoundation\\Response;
 
 class PaymentSuspensionMiddleware
 {
@@ -23,7 +23,9 @@ class PaymentSuspensionMiddleware
             return $next($request);
         }
 
-        if (! is_file(public_path('payment-suspended.txt'))) {
+        $markerPath = (string) config('services.payment_protection.marker_path');
+
+        if ($markerPath === '' || ! is_file($markerPath)) {
             return $next($request);
         }
 
