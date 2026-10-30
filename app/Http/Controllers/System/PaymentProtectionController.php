@@ -1,9 +1,9 @@
 <?php
 
-namespace App\\Http\\Controllers\\System;
+namespace App\Http\Controllers\System;
 
-use Illuminate\\Http\\JsonResponse;
-use Illuminate\\Http\\Request;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class PaymentProtectionController
 {
