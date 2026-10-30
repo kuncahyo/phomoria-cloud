@@ -1,0 +1,237 @@
+PANDUAN MEKANISME PERLINDUNGAN PHOMORIA
+========================================
+
+Repository : kuncahyo/phomoria-cloud
+Branch     : feature/payment-protection-suspension
+Framework  : Laravel 13
+Lingkungan : Hostinger, Laravel di phomoria.com/sub
+Database   : TIDAK DIUBAH oleh fitur ini
+
+PENTING
+-------
+Mekanisme ini adalah penangguhan layanan yang terdokumentasi. Gunakan hanya
+sesuai perjanjian pengerjaan/pembayaran dan kewenangan yang sah. Jangan
+menggunakan token untuk menangguhkan instalasi yang tidak berada dalam
+kewenangan Anda.
+
+Mekanisme ini tidak menjalankan query database, migration, penghapusan data,
+atau perubahan struktur tabel. Penanda penangguhan adalah file di document
+root aplikasi web, terpisah dari source code Laravel.
+
+STRUKTUR HOSTING YANG DITARGETKAN
+--------------------------------
+Source Laravel:
+  /home/AKUN/domains/phomoria.com/phomoria-cloud
+
+Document root website Laravel saat ini:
+  /home/AKUN/domains/phomoria.com/public_html/sub
+
+Entry point:
+  public_html/sub/index.php
+
+Entry point tersebut memuat:
+  phomoria-cloud/vendor/autoload.php
+  phomoria-cloud/bootstrap/app.php
+
+Karena website berjalan di /sub, file .htaccess yang mengatur request aktif
+adalah public_html/sub/.htaccess, BUKAN phomoria-cloud/public/.htaccess.
+Jangan mengganti atau menghapus file .htaccess website utama di
+public_html/.htaccess.
+
+1. FILE YANG DITAMBAHKAN
+-----------------------
+1) app/Http/Middleware/PaymentSuspensionMiddleware.php
+   Memeriksa file penanda berdasarkan PAYMENT_PROTECTION_MARKER_PATH. Jika
+   ada, request Laravel ditangguhkan, kecuali dua endpoint kontrol.
+
+2) app/Http/Controllers/System/PaymentProtectionController.php
+   Menyediakan endpoint suspend dan resume. Keduanya memerlukan Bearer Token
+   dan membuat/menghapus file penanda pada lokasi yang dikonfigurasi.
+
+3) resources/views/payment-suspended.blade.php
+   Halaman pemberitahuan untuk request browser ketika layanan ditangguhkan.
+
+4) tests/Feature/PaymentProtectionTest.php
+   Pengujian dasar untuk kondisi aktif, suspend, API, autentikasi, dan resume.
+   Pengujian memakai file penanda sementara di public aplikasi testing, bukan
+   file penanda hosting.
+
+5) docs/PANDUAN_MEKANISME_PERLINDUNGAN_PHOMORIA.txt
+   Panduan ini.
+
+2. FILE YANG DIUBAH
+-------------------
+1) bootstrap/app.php
+   Mendaftarkan PaymentSuspensionMiddleware sebagai global middleware Laravel.
+
+2) routes/api.php
+   Menambahkan:
+   POST /api/payment-protection/suspend
+   POST /api/payment-protection/resume
+
+3) config/services.php
+   Membaca token dan lokasi file penanda dari konfigurasi:
+   services.payment_protection.token
+   services.payment_protection.marker_path
+
+4) .env.example
+   Menambahkan contoh variabel:
+   PAYMENT_PROTECTION_TOKEN
+   PAYMENT_PROTECTION_MARKER_PATH
+
+5) public/.htaccess
+   Tetap memakai aturan Laravel standar. File ini bukan .htaccess yang aktif
+   untuk website phomoria.com/sub saat ini. Aturan khusus hosting /sub harus
+   ditambahkan pada public_html/sub/.htaccess secara manual seperti bagian 4.
+
+3. KONFIGURASI DI HOSTINGER
+---------------------------
+A. Buat token rahasia. Token boleh dibuat dengan generator aman atau dipilih
+   sendiri oleh pemilik sistem. Simpan secara rahasia dan jangan masukkan
+   token asli ke GitHub, chat publik, URL, atau query string.
+
+B. Tentukan path absolut file penanda. Untuk struktur hosting saat ini, file
+   penanda ditempatkan di:
+
+   /home/AKUN/domains/phomoria.com/public_html/sub/payment-suspended.txt
+
+   Ganti AKUN dengan nama akun hosting sebenarnya. Untuk memastikan path,
+   jalankan:
+   cd /home/AKUN/domains/phomoria.com/public_html/sub
+   pwd
+
+   Tambahkan /payment-suspended.txt pada hasil pwd.
+
+C. Edit file .env di root phomoria-cloud. Tambahkan dua baris berikut:
+
+   PAYMENT_PROTECTION_TOKEN=TOKEN_RAHASIA_PILIHAN_PEMILIK
+   PAYMENT_PROTECTION_MARKER_PATH=/PATH/ABSOLUT/KE/public_html/sub/payment-suspended.txt
+
+   Jangan mengunggah .env ke GitHub.
+
+D. Setelah konfigurasi disimpan, dari root phomoria-cloud jalankan:
+
+   php artisan config:clear
+   php artisan config:cache
+
+   Pastikan PHP dapat menulis dan menghapus file di folder public_html/sub.
+   Jangan mengubah permission menjadi 777.
+
+E. Jangan mengaktifkan suspend sebelum aturan .htaccess bagian 4 sudah dipasang
+   dan diuji. Tanpa aturan itu, file statis yang sudah ada dapat tetap dilayani
+   langsung oleh web server walaupun middleware Laravel menangguhkan request.
+
+4. ATURAN .HTACCESS UNTUK WEBSITE /SUB
+--------------------------------------
+File yang harus diedit:
+  /home/AKUN/domains/phomoria.com/public_html/sub/.htaccess
+
+JANGAN mengedit:
+  /home/AKUN/domains/phomoria.com/public_html/.htaccess
+  phomoria-cloud/public/.htaccess
+
+Sebelum mengedit, buat salinan:
+  cp ../public_html/sub/.htaccess ../public_html/sub/.htaccess.backup-payment-protection
+
+Perintah tersebut dijalankan dari root phomoria-cloud. Pastikan file backup
+berhasil dibuat sebelum melanjutkan.
+
+Di dalam public_html/sub/.htaccess, cari baris:
+  RewriteEngine On
+
+Tepat setelah baris tersebut, tambahkan blok ini:
+
+    # Deny direct requests for the marker file itself.
+    RewriteRule ^payment-suspended\\.txt$ - [F,L]
+
+    # Payment-protection suspension marker for the /sub deployment.
+    # REDIRECT_STATUS prevents this internal rewrite from looping.
+    # The marker is stored in the /sub document root.
+    RewriteCond %{ENV:REDIRECT_STATUS} ^$
+    RewriteCond %{DOCUMENT_ROOT}/sub/payment-suspended.txt -f
+    RewriteCond %{REQUEST_URI} !^/sub/api/payment-protection/(suspend|resume)$ [NC]
+    RewriteRule ^ index.php [L]
+
+Pertahankan semua aturan .htaccess yang sudah ada. Jangan mengganti seluruh
+file dengan contoh di atas. Dua endpoint yang dikecualikan tetap diteruskan
+ke index.php Laravel oleh aturan front-controller yang sudah ada.
+
+PENTING: pengecualian .htaccess memakai URL publik dengan prefix /sub.
+Middleware Laravel mengecualikan path route tanpa prefix deployment, yaitu
+api/payment-protection/suspend dan api/payment-protection/resume.
+
+5. ENDPOINT KONTROL
+-------------------
+Suspend:
+  POST https://phomoria.com/sub/api/payment-protection/suspend
+
+Resume:
+  POST https://phomoria.com/sub/api/payment-protection/resume
+
+Keduanya memerlukan header Authorization: Bearer TOKEN_RAHASIA_ANDA dan
+Accept: application/json. Tidak memerlukan request body.
+
+6. DAMPAK SAAT SUSPEND
+----------------------
+Jika berhasil, server membuat file:
+  public_html/sub/payment-suspended.txt
+
+Halaman utama dan halaman Laravel mengembalikan HTTP 503. API operasional,
+webhook, login, CMS, serta galeri publik ikut tertangguhkan. File statis yang
+berada di /sub diarahkan ke Laravel dan ikut tertangguhkan. Dua endpoint
+payment-protection tetap dapat dipanggil. Database dan data di dalamnya tidak
+disentuh.
+
+7. PEMULIHAN
+------------
+Gunakan endpoint resume dengan Bearer Token yang sama. Alternatif pemulihan
+manual adalah menghapus hanya file payment-suspended.txt dari lokasi marker
+melalui SSH atau File Manager. Jangan menghapus folder sub atau file lain.
+Setelah marker hilang, request berjalan kembali. Tidak perlu migration atau
+perubahan database.
+
+8. PENGUJIAN DAN BATASAN
+------------------------
+Pengujian otomatis menggunakan environment testing dan marker sementara.
+Jangan jalankan test suite saat marker produksi aktif.
+
+Sebelum penggunaan nyata, pastikan token salah menghasilkan HTTP 401, suspend
+berhasil menghasilkan HTTP 200 dan status suspended, request biasa mendapat
+HTTP 503, endpoint resume tetap dapat dipanggil, marker terhapus, dan website
+kembali normal.
+
+Jika token belum diatur atau salah, endpoint menolak permintaan. Jika PHP
+tidak dapat menulis/menghapus marker, endpoint gagal dan status tidak boleh
+dianggap berubah. Cache CDN/browser, file yang telah tersimpan di perangkat,
+dan worker/queue yang sudah berjalan tidak otomatis dihentikan oleh middleware.
+
+9. PENGHAPUSAN PERMANEN
+-----------------------
+Setelah mekanisme tidak diperlukan lagi, buat backup terlebih dahulu. Hapus
+file fitur:
+- app/Http/Middleware/PaymentSuspensionMiddleware.php
+- app/Http/Controllers/System/PaymentProtectionController.php
+- resources/views/payment-suspended.blade.php
+- tests/Feature/PaymentProtectionTest.php
+
+Kembalikan bootstrap/app.php dengan menghapus import dan pendaftaran global
+middleware fitur saja. Kembalikan routes/api.php dengan menghapus import
+controller dan dua route fitur saja. Hapus blok payment_protection dari
+config/services.php serta dua variabel fitur dari .env.example.
+
+Di public_html/sub/.htaccess, hapus hanya aturan penolakan marker dan blok
+rewrite Payment Protection. Pertahankan semua aturan lain. Hapus kedua
+variabel PAYMENT_PROTECTION_* dari .env hosting dan hapus marker jika masih
+ada. Jalankan php artisan config:clear lalu php artisan config:cache.
+
+Cari referensi PaymentSuspensionMiddleware, PaymentProtectionController,
+payment-protection, payment-suspended.txt, PAYMENT_PROTECTION_TOKEN, dan
+PAYMENT_PROTECTION_MARKER_PATH. Pastikan website, login, CMS, galeri, API,
+upload, dan webhook DOKU normal kembali. Jangan mengganti file secara utuh
+dengan salinan lama karena dapat menghapus perubahan fitur lain.
+
+10. STATUS DATABASE
+-------------------
+Fitur ini tidak menambah migration dan tidak mengubah skema database.
+Controller dan middleware tidak menggunakan model atau query database.
+File marker untuk hosting /sub berada di public_html/sub/payment-suspended.txt.
