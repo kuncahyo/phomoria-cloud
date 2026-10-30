@@ -1,0 +1,75 @@
+<?php
+
+namespace App\Http\Controllers\System;
+
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Str;
+
+class PaymentProtectionController
+{
+    public function suspend(Request $request): JsonResponse
+    {
+        if ($unauthorized = $this->authorizeOperator($request)) {
+            return $unauthorized;
+        }
+
+        $markerPath = public_path('payment-suspended.txt');
+        $contents = implode(PHP_EOL, [
+            'PHOMORIA SERVICE SUSPENSION',
+            'Status: suspended',
+            'Activated at: '.now()->toIso8601String(),
+            'This marker file can be deleted by an authorized operator to restore service.',
+            '',
+        ]);
+
+        if (file_put_contents($markerPath, $contents, LOCK_EX) === false) {
+            return response()->json([
+                'message' => 'Unable to create the suspension marker. Check public directory permissions.',
+            ], 500);
+        }
+
+        return response()->json([
+            'message' => 'Phomoria has been suspended.',
+            'status' => 'suspended',
+        ]);
+    }
+
+    public function resume(Request $request): JsonResponse
+    {
+        if ($unauthorized = $this->authorizeOperator($request)) {
+            return $unauthorized;
+        }
+
+        $markerPath = public_path('payment-suspended.txt');
+
+        if (is_file($markerPath) && ! unlink($markerPath)) {
+            return response()->json([
+                'message' => 'Unable to remove the suspension marker. Delete public/payment-suspended.txt manually.',
+            ], 500);
+        }
+
+        return response()->json([
+            'message' => 'Phomoria has been restored.',
+            'status' => 'active',
+        ]);
+    }
+
+    private function authorizeOperator(Request $request): ?JsonResponse
+    {
+        $expectedToken = (string) config('services.payment_protection.token');
+        $providedToken = (string) $request->bearerToken();
+
+        if (
+            $expectedToken === ''
+            || $providedToken === ''
+            || ! hash_equals($expectedToken, $providedToken)
+        ) {
+            return response()->json([
+                'message' => 'Unauthorized.',
+            ], 401);
+        }
+
+        return null;
+    }
+}
