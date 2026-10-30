@@ -35,4 +35,8 @@ return [
         ],
     ],
 
+    'payment_protection' => [
+        'token' => env('PAYMENT_PROTECTION_TOKEN'),
+    ],
+
 ];
