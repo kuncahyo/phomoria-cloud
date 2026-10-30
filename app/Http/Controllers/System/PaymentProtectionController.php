@@ -4,7 +4,6 @@ namespace App\Http\Controllers\System;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 
 class PaymentProtectionController
 {
