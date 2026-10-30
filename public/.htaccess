@@ -13,15 +13,6 @@
     RewriteCond %{HTTP:x-xsrf-token} .
     RewriteRule .* - [E=HTTP_X_XSRF_TOKEN:%{HTTP:X-XSRF-Token}]
 
-    # Payment-protection suspension marker:
-    # route all public requests through Laravel while suspended, including
-    # requests for existing static files. The two authenticated control API
-    # endpoints remain reachable so the service can be restored.
-    RewriteCond %{DOCUMENT_ROOT}/payment-suspended.txt -f
-    RewriteCond %{REQUEST_URI} !^/api/payment-protection/(suspend|resume)$ [NC]
-    RewriteCond %{REQUEST_URI} !^/index\.php$ [NC]
-    RewriteRule ^ index.php [L]
-
     # Redirect Trailing Slashes If Not A Folder...
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteCond %{REQUEST_URI} (.+)/$
@@ -32,8 +23,3 @@
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteRule ^ index.php [L]
 </IfModule>
-
-# Prevent direct access to the suspension marker.
-<Files "payment-suspended.txt">
-    Require all denied
-</Files>
