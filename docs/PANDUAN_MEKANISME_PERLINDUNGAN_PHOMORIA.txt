@@ -148,13 +148,14 @@ Di dalam public_html/sub/.htaccess, cari baris:
 Tepat setelah baris tersebut, tambahkan blok ini:
 
     # Deny direct requests for the marker file itself.
-    RewriteRule ^payment-suspended\\.txt$ - [F,L]
+    RewriteRule ^payment-suspended\.txt$ - [F,L]
 
     # Payment-protection suspension marker for the /sub deployment.
+    # REDIRECT_STATUS prevents this internal rewrite from looping.
     # The marker is stored in the /sub document root.
+    RewriteCond %{ENV:REDIRECT_STATUS} ^$
     RewriteCond %{DOCUMENT_ROOT}/sub/payment-suspended.txt -f
     RewriteCond %{REQUEST_URI} !^/sub/api/payment-protection/(suspend|resume)$ [NC]
-    RewriteCond %{REQUEST_URI} !^/sub/index\\.php$ [NC]
     RewriteRule ^ index.php [L]
 
 Pertahankan semua aturan .htaccess yang sudah ada. Jangan mengganti seluruh
