@@ -316,7 +316,7 @@ komentar khusus fitur ini.
 
 F. Kembalikan public_html/sub/.htaccess:
 Hapus hanya dua blok yang ditambahkan:
-- RewriteRule ^payment-suspended\\.txt$ - [F,L]
+- RewriteRule ^payment-suspended\.txt$ - [F,L]
 - Blok yang dimulai dengan komentar:
   # Payment-protection suspension marker for the /sub deployment.
   Termasuk dua RewriteCond pengecualian dan RewriteRule terkait.
