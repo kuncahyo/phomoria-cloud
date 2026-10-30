@@ -35,6 +35,7 @@ Route::get('/gallery/{device_hash}/{session_date}/{sequence}/status', [GalleryCo
     ->where(['device_hash' => '[a-f0-9]{8}', 'session_date' => '[0-9]{8}', 'sequence' => '[0-9]{6}']);
 Route::get('/gallery/{device_hash}/{session_date}/{sequence}/download-live-photo', [GalleryController::class, 'downloadLivePhotoByPublicId'])->where(['device_hash' => '[a-f0-9]{8}', 'session_date' => '[0-9]{8}', 'sequence' => '[0-9]{6}']);
 Route::get('/gallery/{device_hash}/{session_date}/{sequence}/download-gif', [GalleryController::class, 'downloadGifByPublicId'])->where(['device_hash' => '[a-f0-9]{8}', 'session_date' => '[0-9]{8}', 'sequence' => '[0-9]{6}']);
+Route::get('/gallery/{device_hash}/{session_date}/{sequence}/download-photo/{photoId}', [GalleryController::class, 'downloadPhotoByPublicId'])->where(['device_hash' => '[a-f0-9]{8}', 'session_date' => '[0-9]{8}', 'sequence' => '[0-9]{6}', 'photoId' => '[0-9]+']);
 Route::get('/gallery/{device_hash}/{session_date}/{sequence}/download-result', [GalleryController::class, 'downloadResultByPublicId'])
     ->where(['device_hash' => '[a-f0-9]{8}', 'session_date' => '[0-9]{8}', 'sequence' => '[0-9]{6}']);
 Route::get('/gallery/{device_hash}/{session_date}/{sequence}/download', [GalleryController::class, 'downloadZipByPublicId'])
@@ -45,6 +46,7 @@ Route::get('/gallery/{device_hash}/{session_date}/{sequence}', [GalleryControlle
 Route::get('/gallery/{session_code}/status', [GalleryController::class, 'status'])->name('gallery.status');
 Route::get('/gallery/{session_code}/download-live-photo', [GalleryController::class, 'downloadLivePhoto'])->name('gallery.download.live-photo');
 Route::get('/gallery/{session_code}/download-gif', [GalleryController::class, 'downloadGif'])->name('gallery.download.gif');
+Route::get('/gallery/{session_code}/download-photo/{photoId}', [GalleryController::class, 'downloadPhoto'])->whereNumber('photoId')->name('gallery.download.photo');
 Route::get('/gallery/{session_code}', [GalleryController::class, 'show']);
 
 Route::get(
