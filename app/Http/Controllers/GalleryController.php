@@ -42,6 +42,7 @@ class GalleryController extends Controller
     public function downloadLivePhotoByPublicId(string $deviceHash, string $sessionDate, string $sequence) { return $this->downloadAsset($this->publicSessionCode($deviceHash, $sessionDate, $sequence), 'live_photo'); }
     public function downloadGifByPublicId(string $deviceHash, string $sessionDate, string $sequence) { return $this->downloadAsset($this->publicSessionCode($deviceHash, $sessionDate, $sequence), 'gif'); }
     public function downloadZipByPublicId(string $deviceHash, string $sessionDate, string $sequence) { return $this->downloadZip($this->publicSessionCode($deviceHash, $sessionDate, $sequence)); }
+    public function downloadPhotoByPublicId(string $deviceHash, string $sessionDate, string $sequence, int $photoId) { return $this->downloadPhoto($this->publicSessionCode($deviceHash, $sessionDate, $sequence), $photoId); }
 
     public function show($sessionCode)
     {
@@ -103,6 +104,30 @@ class GalleryController extends Controller
     public function downloadGif($sessionCode)
     {
         return $this->downloadAsset($sessionCode, 'gif');
+    }
+
+    public function downloadPhoto($sessionCode, int $photoId)
+    {
+        $session = PhotoSession::with(['photos', 'assets'])->where('session_code', $sessionCode)->firstOrFail();
+        $photo = $session->photos->firstWhere('id', $photoId);
+        if (!$photo || $photo->is_result || $photo->is_live_photo
+            || strtolower(pathinfo($photo->filename, PATHINFO_EXTENSION)) === 'gif') {
+            abort(404, 'Foto tidak ditemukan.');
+        }
+
+        if ($session->assets->isNotEmpty()) {
+            $asset = $session->assets->first(fn ($item) => $item->asset_type === 'photo'
+                && $item->filename === $photo->filename && $item->status === 'UPLOADED');
+            if (!$asset) abort(404, 'Foto belum tersedia.');
+        }
+
+        $filename = basename($photo->filename);
+        $relative = $this->sessionFolder($session) . '/' . $filename;
+        $disk = Storage::disk('public');
+        if (!$disk->exists($relative)) abort(404, 'File foto tidak ditemukan.');
+
+        $downloadName = basename($photo->original_name ?: $filename);
+        return response()->download($disk->path($relative), $downloadName);
     }
 
     private function downloadAsset($sessionCode, string $type)
