@@ -33,6 +33,8 @@ Route::get('/gallery', [GalleryController::class, 'index'])
 // Public session URLs use a non-reversible device fingerprint, date, and daily sequence.
 Route::get('/gallery/{device_hash}/{session_date}/{sequence}/status', [GalleryController::class, 'statusByPublicId'])
     ->where(['device_hash' => '[a-f0-9]{8}', 'session_date' => '[0-9]{8}', 'sequence' => '[0-9]{6}']);
+Route::get('/gallery/{device_hash}/{session_date}/{sequence}/download-live-photo', [GalleryController::class, 'downloadLivePhotoByPublicId'])->where(['device_hash' => '[a-f0-9]{8}', 'session_date' => '[0-9]{8}', 'sequence' => '[0-9]{6}']);
+Route::get('/gallery/{device_hash}/{session_date}/{sequence}/download-gif', [GalleryController::class, 'downloadGifByPublicId'])->where(['device_hash' => '[a-f0-9]{8}', 'session_date' => '[0-9]{8}', 'sequence' => '[0-9]{6}']);
 Route::get('/gallery/{device_hash}/{session_date}/{sequence}/download-result', [GalleryController::class, 'downloadResultByPublicId'])
     ->where(['device_hash' => '[a-f0-9]{8}', 'session_date' => '[0-9]{8}', 'sequence' => '[0-9]{6}']);
 Route::get('/gallery/{device_hash}/{session_date}/{sequence}/download', [GalleryController::class, 'downloadZipByPublicId'])
@@ -41,6 +43,8 @@ Route::get('/gallery/{device_hash}/{session_date}/{sequence}', [GalleryControlle
     ->where(['device_hash' => '[a-f0-9]{8}', 'session_date' => '[0-9]{8}', 'sequence' => '[0-9]{6}']);
 
 Route::get('/gallery/{session_code}/status', [GalleryController::class, 'status'])->name('gallery.status');
+Route::get('/gallery/{session_code}/download-live-photo', [GalleryController::class, 'downloadLivePhoto'])->name('gallery.download.live-photo');
+Route::get('/gallery/{session_code}/download-gif', [GalleryController::class, 'downloadGif'])->name('gallery.download.gif');
 Route::get('/gallery/{session_code}', [GalleryController::class, 'show']);
 
 Route::get(
