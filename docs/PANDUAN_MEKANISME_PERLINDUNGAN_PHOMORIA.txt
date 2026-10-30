@@ -64,9 +64,14 @@ Tambahkan variabel berikut ke file .env di root Laravel:
 
 PAYMENT_PROTECTION_TOKEN=GANTI_DENGAN_TOKEN_ACAK_PANJANG
 
-Buat token acak yang panjang dan unik. Jangan masukkan token asli ke GitHub,
-jangan kirim melalui chat publik, dan jangan menaruhnya di URL atau query
-string. Simpan token di tempat aman. Setelah mengubah .env, jalankan:
+Buat token acak yang panjang dan unik. Salah satu cara membuat token 64 karakter
+heksadesimal dari terminal:
+
+php -r "echo bin2hex(random_bytes(32)), PHP_EOL;"
+
+Salin hasilnya sebagai nilai PAYMENT_PROTECTION_TOKEN. Jangan masukkan token
+asli ke GitHub, jangan kirim melalui chat publik, dan jangan menaruhnya di URL
+atau query string. Simpan token di tempat aman. Setelah mengubah .env, jalankan:
 
 php artisan config:clear
 php artisan config:cache
