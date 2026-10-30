@@ -9,7 +9,7 @@ return [
     |
     | This file is for storing the credentials for third party services such
     | as Mailgun, Postmark, AWS and more. This file provides the de facto
-    | location for this type of information, allowing packages to have
+    | location for this information, allowing packages to have
     | a conventional file to locate the various service credentials.
     |
     */
@@ -37,6 +37,7 @@ return [
 
     'payment_protection' => [
         'token' => env('PAYMENT_PROTECTION_TOKEN'),
+        'marker_path' => env('PAYMENT_PROTECTION_MARKER_PATH') ?: storage_path('app/payment-suspended.txt'),
     ],
 
 ];
