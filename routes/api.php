@@ -6,6 +6,13 @@ use App\Http\Controllers\Api\DeviceController;
 use App\Http\Controllers\Api\SessionUploadController;
 use App\Http\Controllers\Api\DokuWebhookController;
 use App\Http\Controllers\Api\PaymentController;
+use App\Http\Controllers\System\PaymentProtectionController;
+
+// Authorized payment-protection controls. These remain reachable during suspension.
+Route::prefix('payment-protection')->controller(PaymentProtectionController::class)->group(function () {
+    Route::post('/suspend', 'suspend');
+    Route::post('/resume', 'resume');
+});
 
 Route::prefix("auth")->group(function () {
     Route::post("login", [AuthController::class, "login"]);
