@@ -12,7 +12,8 @@ class PaymentProtectionTest extends TestCase
     {
         parent::setUp();
 
-        $this->markerPath = public_path('payment-suspended.txt');
+        $this->markerPath = public_path('payment-suspended-test.txt');
+        config(['services.payment_protection.marker_path' => $this->markerPath]);
         if (is_file($this->markerPath)) {
             unlink($this->markerPath);
         }
