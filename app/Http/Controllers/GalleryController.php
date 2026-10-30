@@ -1,13 +1,13 @@
 <?php
 
-namespace App\\Http\\Controllers;
+namespace App\Http\Controllers;
 
-use App\\Models\\Device;
-use App\\Models\\Photo;
-use App\\Models\\PhotoSession;
-use App\\Models\\PhotoSessionAsset;
-use Illuminate\\Http\\Request;
-use Illuminate\\Support\\Facades\\Storage;
+use App\Models\Device;
+use App\Models\Photo;
+use App\Models\PhotoSession;
+use App\Models\PhotoSessionAsset;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use ZipArchive;
 
 class GalleryController extends Controller
