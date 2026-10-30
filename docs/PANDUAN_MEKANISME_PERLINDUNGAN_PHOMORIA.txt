@@ -147,23 +147,21 @@ Di dalam public_html/sub/.htaccess, cari baris:
 
 Tepat setelah baris tersebut, tambahkan blok ini:
 
+    # Deny direct requests for the marker file itself.
+    RewriteRule ^payment-suspended\\.txt$ - [F,L]
+
     # Payment-protection suspension marker for the /sub deployment.
     # The marker is stored in the /sub document root.
     RewriteCond %{DOCUMENT_ROOT}/sub/payment-suspended.txt -f
     RewriteCond %{REQUEST_URI} !^/sub/api/payment-protection/(suspend|resume)$ [NC]
-    RewriteCond %{REQUEST_URI} !^/sub/index\.php$ [NC]
+    RewriteCond %{REQUEST_URI} !^/sub/index\\.php$ [NC]
     RewriteRule ^ index.php [L]
 
-Di bagian paling bawah file, setelah blok </IfModule>, tambahkan:
-
-    # Do not expose the suspension marker as a downloadable file.
-    <Files "payment-suspended.txt">
-        Require all denied
-    </Files>
-
 Pertahankan semua aturan .htaccess yang sudah ada. Jangan mengganti seluruh
-file dengan contoh di atas. Dua endpoint yang dikecualikan tetap harus
-diteruskan ke index.php Laravel oleh aturan front-controller yang sudah ada.
+file dengan contoh di atas. Aturan penolakan marker memakai mod_rewrite yang
+sudah digunakan file ini; tidak memerlukan aturan <Files> tambahan. Dua
+endpoint yang dikecualikan tetap diteruskan ke index.php Laravel oleh aturan
+front-controller yang sudah ada.
 
 PENTING: pengecualian .htaccess memakai URL publik dengan prefix /sub.
 Middleware Laravel mengecualikan path route tanpa prefix deployment, yaitu
