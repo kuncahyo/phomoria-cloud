@@ -1,9 +1,9 @@
 <?php
 
-namespace App\Http\Controllers\System;
+namespace App\\Http\\Controllers\\System;
 
-use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
+use Illuminate\\Http\\JsonResponse;
+use Illuminate\\Http\\Request;
 
 class PaymentProtectionController
 {
@@ -13,7 +13,7 @@ class PaymentProtectionController
             return $unauthorized;
         }
 
-        $markerPath = public_path('payment-suspended.txt');
+        $markerPath = $this->markerPath();
         $contents = implode(PHP_EOL, [
             'PHOMORIA SERVICE SUSPENSION',
             'Status: suspended',
@@ -24,7 +24,7 @@ class PaymentProtectionController
 
         if (file_put_contents($markerPath, $contents, LOCK_EX) === false) {
             return response()->json([
-                'message' => 'Unable to create the suspension marker. Check public directory permissions.',
+                'message' => 'Unable to create the suspension marker. Check the configured marker directory permissions.',
             ], 500);
         }
 
@@ -40,11 +40,11 @@ class PaymentProtectionController
             return $unauthorized;
         }
 
-        $markerPath = public_path('payment-suspended.txt');
+        $markerPath = $this->markerPath();
 
         if (is_file($markerPath) && ! unlink($markerPath)) {
             return response()->json([
-                'message' => 'Unable to remove the suspension marker. Delete public/payment-suspended.txt manually.',
+                'message' => 'Unable to remove the suspension marker. Delete the configured marker file manually.',
             ], 500);
         }
 
@@ -52,6 +52,11 @@ class PaymentProtectionController
             'message' => 'Phomoria has been restored.',
             'status' => 'active',
         ]);
+    }
+
+    private function markerPath(): string
+    {
+        return (string) config('services.payment_protection.marker_path');
     }
 
     private function authorizeOperator(Request $request): ?JsonResponse
