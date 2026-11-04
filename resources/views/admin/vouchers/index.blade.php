@@ -47,19 +47,20 @@
         <div style="padding:20px 20px 14px"><h2 style="margin:0;font-size:17px">Daftar Voucher</h2><p class="voucher-muted" style="font-size:12px;margin-top:5px">Menampilkan voucher terbaru terlebih dahulu.</p></div>
         <div class="voucher-table-wrap" style="border:0;border-radius:0">
             <table class="voucher-table">
-                <thead><tr><th>Kode</th><th>Jenis / Status</th><th>Penggunaan</th><th>Kedaluwarsa</th><th>Dibuat</th></tr></thead>
+                <thead><tr><th>Kode</th><th>Jenis / Status</th><th>Sesi selesai</th><th>Menunggu upload</th><th>Kedaluwarsa</th><th>Dibuat</th></tr></thead>
                 <tbody>
                 @forelse($vouchers as $voucher)
                     @php($expired = $voucher->expires_at && $voucher->expires_at->isPast())
                     <tr>
                         <td class="voucher-code">{{ $voucher->code }}</td>
                         <td><span class="voucher-status {{ $expired ? 'expired' : $voucher->status }}">{{ $expired ? 'EXPIRED' : strtoupper($voucher->status) }}</span></td>
-                        <td>{{ number_format($voucher->redemptions_count) }} kali</td>
+                        <td>{{ number_format($voucher->completed_count) }} kali</td>
+                        <td>{{ number_format($voucher->pending_count) }} sesi</td>
                         <td>{{ $voucher->expires_at ? $voucher->expires_at->format('d/m/Y H:i') : 'Tidak ada batas' }}</td>
                         <td>{{ $voucher->created_at->format('d/m/Y H:i') }}</td>
                     </tr>
                 @empty
-                    <tr><td colspan="5" class="voucher-empty">Belum ada voucher. Buat voucher pertama melalui formulir di atas.</td></tr>
+                    <tr><td colspan="6" class="voucher-empty">Belum ada voucher. Buat voucher pertama melalui formulir di atas.</td></tr>
                 @endforelse
                 </tbody>
             </table>
