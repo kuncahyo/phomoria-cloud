@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DeviceController;
 use App\Http\Controllers\Api\SessionUploadController;
+use App\Http\Controllers\Api\VoucherController;
 use App\Http\Controllers\Api\DokuWebhookController;
 use App\Http\Controllers\Api\PaymentController;
 
@@ -19,6 +20,7 @@ Route::middleware("auth:sanctum")->group(function () {
     Route::post("device/register", [DeviceController::class, "register"]);
     Route::put("device/price", [DeviceController::class, "updatePrice"]);
     Route::post("session/reserve", [SessionUploadController::class, "reserve"]);
+    Route::post("voucher/authorize-session", [VoucherController::class, "authorizeSession"]);
     Route::post("session/asset", [SessionUploadController::class, "uploadAsset"]);
     Route::post("session/upload", [SessionUploadController::class, "upload"]);
     Route::get("device/frames", [DeviceController::class, "frames"]);
