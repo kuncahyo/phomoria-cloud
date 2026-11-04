@@ -6,8 +6,9 @@ Midtrans, or DOKU payment flows.
 
 ## Voucher statuses
 
-- `active`: may authorize one session. It is changed to `used` atomically
-  when the server grants the session authorization.
+- `active`: may reserve one session at a time. It remains `active` while the
+  authorization is pending and changes to `used` only after the completed
+  photo-session upload is committed.
 - `used`: cannot authorize another session.
 - `secret`: may authorize multiple sessions and remains `secret`.
 
@@ -63,10 +64,14 @@ Successful response:
 }
 ```
 
-The desktop application must call this endpoint immediately before starting
-the camera/session flow. It must not start a voucher-funded session unless the
-server returns `success: true`. Keep the returned token in memory for that
-session; do not log it or persist it as a reusable credential.
+The desktop application calls this endpoint before opening frame selection
+and starting the camera/session flow. The server creates a time-limited
+reservation. A one-time `active` voucher cannot be reserved by another request
+while that reservation is unexpired. The code remains `active` until the
+completed photo-session upload commits, then changes to `used`. If the user
+abandons the flow, the reservation expires after four hours and the code can
+be reserved again. Keep the returned token in memory for that session; do not
+log it or persist it as a reusable credential.
 
 Invalid or used voucher returns HTTP 422. An unowned or inactive device returns
 HTTP 403. Validation and voucher consumption happen server-side under database
@@ -86,8 +91,9 @@ POST /api/session/upload
 Include `voucher_token` alongside the existing `device_uuid`,
 `frame_name`, and photo files. The backend checks that the token belongs to
 the authenticated user and device, is still authorized, and has not expired.
-On successful upload, it marks the redemption `completed` and links it to the
-created `photo_session`.
+On successful upload, it marks the redemption `completed`, links it to the
+created `photo_session`, and changes an `active` voucher to `used` in the same
+database transaction.
 
 If the upload fails within the database transaction, the redemption remains
 authorized so the application can retry the upload using the same token.
