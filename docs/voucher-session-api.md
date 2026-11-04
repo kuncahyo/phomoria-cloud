@@ -1,40 +1,21 @@
 # Voucher Session API
 
-This document describes the first backend-only voucher implementation on
-`feature/voucher-service`. It does not modify or replace the existing QRIS,
-Midtrans, or DOKU payment flows.
+Voucher support is added alongside the persistent session reservation and
+asset-upload API. It does not change QRIS, Midtrans, or DOKU payment behavior.
 
 ## Voucher statuses
 
-- `active`: may reserve one session at a time. It remains `active` while the
-  authorization is pending and changes to `used` only after the completed
-  photo-session upload is committed.
+- `active`: may authorize one session at a time. The voucher stays active
+  while reserved and changes to `used` only after every manifest asset for
+  its linked photo session is uploaded.
 - `used`: cannot authorize another session.
-- `secret`: may authorize multiple sessions and remains `secret`.
+- `secret`: may authorize multiple sessions and remains secret.
 
-Voucher codes are normalized to uppercase before lookup. Store codes in
-uppercase for predictable behavior.
+Voucher codes are normalized to uppercase before lookup. Create and manage
+voucher rows only through a trusted administrative process; no desktop-facing
+voucher administration endpoint is provided in this milestone.
 
-## Create voucher codes
-
-There is not yet an admin screen or admin API for voucher management. For this
-backend milestone, voucher rows can be created through a trusted database
-administration tool.
-
-Example:
-
-```sql
-INSERT INTO voucher_codes (code, status, expires_at, created_at, updated_at)
-VALUES ('PROMO-ABC-001', 'active', NULL, NOW(), NOW());
-
-INSERT INTO voucher_codes (code, status, expires_at, created_at, updated_at)
-VALUES ('OWNER-SECRET-001', 'secret', NULL, NOW(), NOW());
-```
-
-Never expose database credentials or a voucher-management operation to the
-desktop client.
-
-## Authorize a session
+## Authorize before starting the camera
 
 Authenticated endpoint:
 
@@ -53,7 +34,9 @@ Request:
 }
 ```
 
-Successful response:
+The server verifies the authenticated account, active device ownership,
+voucher status, and expiry. It creates a time-limited authorization and
+returns an opaque one-session token:
 
 ```json
 {
@@ -64,45 +47,60 @@ Successful response:
 }
 ```
 
-The desktop application calls this endpoint before opening frame selection
-and starting the camera/session flow. The server creates a time-limited
-reservation. A one-time `active` voucher cannot be reserved by another request
-while that reservation is unexpired. The code remains `active` until the
-completed photo-session upload commits, then changes to `used`. If the user
-abandons the flow, the reservation expires after four hours and the code can
-be reserved again. Keep the returned token in memory for that session; do not
-log it or persist it as a reusable credential.
+For an `active` voucher, database row locking and an outstanding-reservation
+check prevent another device from reserving the same voucher concurrently.
+The voucher status itself remains `active` until the session is fully
+uploaded. If the user abandons the flow before the server session is reserved,
+the authorization expires after four hours and the voucher can be reserved
+again. Once linked to an incomplete server session, that reservation remains
+protected from reuse until the session completes.
 
-Invalid or used voucher returns HTTP 422. An unowned or inactive device returns
-HTTP 403. Validation and voucher consumption happen server-side under database
-row locks, so concurrent attempts cannot both consume the same one-time code.
+The desktop client must keep the token private. It may be held in memory and
+temporarily persisted with the local upload queue until the server accepts the
+session reservation. It must never be logged or sent to a different device.
 
-The authorization token expires after four hours and is stored in the database
-as a SHA-256 hash, not as plaintext.
+## Link voucher to persistent session reservation
 
-## Upload the completed session
-
-When uploading the photos through the existing endpoint, include the token:
+The desktop sends the token with its existing manifest request:
 
 ```
-POST /api/session/upload
+POST /api/session/reserve
 ```
 
-Include `voucher_token` alongside the existing `device_uuid`,
-`frame_name`, and photo files. The backend checks that the token belongs to
-the authenticated user and device, is still authorized, and has not expired.
-On successful upload, it marks the redemption `completed`, links it to the
-created `photo_session`, and changes an `active` voucher to `used` in the same
-database transaction.
+Add `voucher_token` to the existing JSON payload, alongside `device_uuid`,
+`client_session_id`, `frame_name`, and `assets`.
 
-If the upload fails within the database transaction, the redemption remains
-authorized so the application can retry the upload using the same token.
-Existing non-voucher uploads remain compatible and may omit `voucher_token`.
+The backend verifies that the token belongs to the authenticated user and
+device, then binds the voucher redemption to exactly that `photo_session`.
+Retries with the same client session ID and same token are idempotent. A token
+already linked to another photo session is rejected.
 
-## Scope and remaining work
+After the server accepts the reservation, the desktop can discard the token
+from its local queue entry. The server-side redemption is already linked to
+the session.
 
-This is the backend API foundation only. The Java desktop UI and camera-start
-integration, admin voucher management, expiry/quota administration, and
-end-to-end tests against the deployed Hostinger database are not included yet.
-The current payment dialog and legacy QRIS/Midtrans implementation are
-intentionally untouched.
+## Consume after all assets arrive
+
+The existing asset endpoint remains:
+
+```
+POST /api/session/asset
+```
+
+Each asset upload is processed normally. When the final pending asset is
+committed, the same database transaction marks the voucher redemption
+`completed`, records `completed_at`, and changes an `active` voucher to
+`used`. A `secret` voucher remains `secret`.
+
+If upload is interrupted, the server session remains incomplete and the
+voucher is not marked used yet. The persistent upload queue can retry the
+remaining assets. Existing non-voucher sessions remain compatible and do not
+need to send `voucher_token`.
+
+## Scope
+
+This milestone includes the backend voucher tables, authorization endpoint,
+linkage to persistent session reservation, final-asset consumption, and
+feature tests. It does not include voucher administration UI, quotas beyond
+the one-time status rule, partner/device eligibility rules beyond authenticated
+device ownership and active status, or any QRIS/payment changes.
