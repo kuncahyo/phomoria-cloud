@@ -6,6 +6,8 @@ use App\Models\Device;
 use App\Models\User;
 use App\Models\VoucherCode;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class VoucherAuthorizationTest extends TestCase
@@ -145,4 +147,44 @@ class VoucherAuthorizationTest extends TestCase
             'status' => 'active',
         ]);
     }
+    public function test_active_voucher_becomes_used_only_after_session_upload_succeeds(): void
+    {
+        Storage::fake('public');
+        [$user, $device] = $this->createUserAndDevice();
+
+        VoucherCode::create([
+            'code' => 'UPLOAD-001',
+            'status' => 'active',
+        ]);
+
+        $authorization = $this->actingAs($user)->postJson('/api/voucher/authorize-session', [
+            'code' => 'UPLOAD-001',
+            'device_uuid' => $device->device_uuid,
+        ])->assertOk();
+
+        $token = $authorization->json('session_authorization_token');
+
+        $this->assertDatabaseHas('voucher_codes', [
+            'code' => 'UPLOAD-001',
+            'status' => 'active',
+        ]);
+
+        $this->actingAs($user)->post('/api/session/upload', [
+            'device_uuid' => $device->device_uuid,
+            'frame_name' => 'Test Frame',
+            'voucher_token' => $token,
+            'result' => UploadedFile::fake()->image('result.png'),
+        ], ['Accept' => 'application/json'])->assertOk();
+
+        $this->assertDatabaseHas('voucher_codes', [
+            'code' => 'UPLOAD-001',
+            'status' => 'used',
+        ]);
+        $this->assertDatabaseHas('voucher_redemptions', [
+            'user_id' => $user->id,
+            'device_id' => $device->id,
+            'status' => 'completed',
+        ]);
+    }
+
 }
