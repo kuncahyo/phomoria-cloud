@@ -35,7 +35,7 @@ class VoucherAuthorizationTest extends TestCase
         return [$user, $device];
     }
 
-    public function test_active_voucher_is_consumed_and_returns_session_authorization(): void
+    public function test_active_voucher_is_reserved_until_session_upload_completes(): void
     {
         [$user, $device] = $this->createUserAndDevice();
 
@@ -56,7 +56,7 @@ class VoucherAuthorizationTest extends TestCase
 
         $this->assertDatabaseHas('voucher_codes', [
             'code' => 'ONE-TIME-001',
-            'status' => 'used',
+            'status' => 'active',
         ]);
 
         $this->assertDatabaseHas('voucher_redemptions', [
@@ -64,6 +64,13 @@ class VoucherAuthorizationTest extends TestCase
             'device_id' => $device->id,
             'status' => 'authorized',
         ]);
+
+        $this->actingAs($user)->postJson('/api/voucher/authorize-session', [
+            'code' => 'ONE-TIME-001',
+            'device_uuid' => $device->device_uuid,
+        ])->assertUnprocessable();
+
+        $this->assertDatabaseCount('voucher_redemptions', 1);
     }
 
     public function test_secret_voucher_remains_reusable(): void
