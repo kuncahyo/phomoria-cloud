@@ -147,7 +147,7 @@ class VoucherAuthorizationTest extends TestCase
             'status' => 'active',
         ]);
     }
-    public function test_active_voucher_becomes_used_only_after_session_upload_succeeds(): void
+    public function test_active_voucher_becomes_used_only_after_all_session_assets_upload(): void
     {
         Storage::fake('public');
         [$user, $device] = $this->createUserAndDevice();
@@ -163,17 +163,32 @@ class VoucherAuthorizationTest extends TestCase
         ])->assertOk();
 
         $token = $authorization->json('session_authorization_token');
+        $clientSessionId = '123e4567-e89b-12d3-a456-426614174001';
+
+        $this->actingAs($user)->postJson('/api/session/reserve', [
+            'device_uuid' => $device->device_uuid,
+            'client_session_id' => $clientSessionId,
+            'frame_name' => 'Test Frame',
+            'voucher_token' => $token,
+            'assets' => [[
+                'asset_key' => 'result',
+                'asset_type' => 'result',
+                'filename' => 'result.png',
+                'sort_order' => 0,
+                'size' => 0,
+            ]],
+        ])->assertOk();
 
         $this->assertDatabaseHas('voucher_codes', [
             'code' => 'UPLOAD-001',
             'status' => 'active',
         ]);
 
-        $this->actingAs($user)->post('/api/session/upload', [
+        $this->actingAs($user)->post('/api/session/asset', [
             'device_uuid' => $device->device_uuid,
-            'frame_name' => 'Test Frame',
-            'voucher_token' => $token,
-            'result' => UploadedFile::fake()->image('result.png'),
+            'client_session_id' => $clientSessionId,
+            'asset_key' => 'result',
+            'file' => UploadedFile::fake()->image('result.png'),
         ], ['Accept' => 'application/json'])->assertOk();
 
         $this->assertDatabaseHas('voucher_codes', [
