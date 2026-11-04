@@ -1,14 +1,14 @@
 <?php
 
-namespace App\\Http\\Controllers\\Api;
+namespace App\Http\Controllers\Api;
 
-use App\\Http\\Controllers\\Controller;
-use App\\Models\\Device;
-use App\\Models\\VoucherCode;
-use App\\Models\\VoucherRedemption;
-use Illuminate\\Http\\Request;
-use Illuminate\\Support\\Facades\\DB;
-use Illuminate\\Support\\Str;
+use App\Http\Controllers\Controller;
+use App\Models\Device;
+use App\Models\VoucherCode;
+use App\Models\VoucherRedemption;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class VoucherController extends Controller
 {
