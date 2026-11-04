@@ -7,6 +7,7 @@ use App\Http\Controllers\Auth\WebAuthController;
 use App\Http\Controllers\Admin\FrameAssignmentController as FrameController;
 use App\Http\Controllers\Admin\DevicePricingController;
 use App\Http\Controllers\Admin\DokuPaymentController;
+use App\Http\Controllers\Admin\VoucherAdminController;
 
 Route::get('/', function () {
     return view('welcome');
