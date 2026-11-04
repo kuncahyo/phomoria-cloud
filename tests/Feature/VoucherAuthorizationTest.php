@@ -175,7 +175,6 @@ class VoucherAuthorizationTest extends TestCase
                 'asset_type' => 'result',
                 'filename' => 'result.png',
                 'sort_order' => 0,
-                'size' => 0,
             ]],
         ])->assertOk();
 
