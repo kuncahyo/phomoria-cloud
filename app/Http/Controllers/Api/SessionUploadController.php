@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Photo;
 use App\Models\Device;
 use App\Models\PhotoSession;
+use App\Models\VoucherRedemption;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -21,7 +22,8 @@ class SessionUploadController extends Controller
 
             'device_uuid' => 'required',
 
-            'frame_name' => 'required'
+            'frame_name' => 'required',
+            'voucher_token' => 'nullable|string|max:128'
 
         ]);
 
@@ -57,6 +59,28 @@ class SessionUploadController extends Controller
         DB::beginTransaction();
 
         try {
+
+            $voucherRedemption = null;
+
+            if ($request->filled('voucher_token')) {
+                $voucherRedemption = VoucherRedemption::query()
+                    ->where('session_token_hash', hash('sha256', $request->voucher_token))
+                    ->where('user_id', $request->user()->id)
+                    ->where('device_id', $device->id)
+                    ->where('status', 'authorized')
+                    ->where('expires_at', '>', now())
+                    ->lockForUpdate()
+                    ->first();
+
+                if (!$voucherRedemption) {
+                    DB::rollBack();
+
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Otorisasi voucher tidak valid, sudah digunakan, atau kedaluwarsa.'
+                    ], 422);
+                }
+            }
 
             $today =
                 Carbon::now();
@@ -157,6 +181,13 @@ class SessionUploadController extends Controller
                     "COMPLETED";
 
             $session->save();
+
+            if ($voucherRedemption) {
+                $voucherRedemption->status = 'completed';
+                $voucherRedemption->photo_session_id = $session->id;
+                $voucherRedemption->completed_at = now();
+                $voucherRedemption->save();
+            }
 
             DB::commit();
 
