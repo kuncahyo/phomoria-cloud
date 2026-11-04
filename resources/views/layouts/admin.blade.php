@@ -20,6 +20,7 @@
 <div style="height: 24px;"></div>
 <div class="sidebar-section">Setting</div>
 <a href="{{ route('admin.doku.index') }}" class="sidebar-link">DOKU</a>
+<a href="{{ route('admin.vouchers.index') }}" class="sidebar-link">Voucher</a>
 <div class="sidebar-user">
 <div class="sidebar-user-name">{{ auth()->user()->name }}</div>
 <form method="POST" action="{{ route('logout') }}">@csrf<button type="submit" class="logout-button">Logout</button></form>

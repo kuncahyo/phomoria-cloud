@@ -7,6 +7,7 @@ use App\Http\Controllers\Auth\WebAuthController;
 use App\Http\Controllers\Admin\FrameAssignmentController as FrameController;
 use App\Http\Controllers\Admin\DevicePricingController;
 use App\Http\Controllers\Admin\DokuPaymentController;
+use App\Http\Controllers\Admin\VoucherAdminController;
 
 Route::get('/', function () {
     return view('welcome');
@@ -131,7 +132,11 @@ Route::middleware('auth')->group(function () {
         [FrameController::class, 'destroy']
     )->name('admin.frames.destroy');
 
-// DOKU Checkout
+// Voucher management
+    Route::get('/admin/vouchers', [VoucherAdminController::class, 'index'])->name('admin.vouchers.index');
+    Route::post('/admin/vouchers', [VoucherAdminController::class, 'store'])->name('admin.vouchers.store');
+
+    // DOKU Checkout
     Route::get('/admin/doku', [DokuPaymentController::class, 'index'])
         ->name('admin.doku.index');
 
