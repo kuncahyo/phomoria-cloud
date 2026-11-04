@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Device;
+use App\Models\PhotoSession;
 use App\Models\VoucherCode;
 use App\Models\VoucherRedemption;
 use Illuminate\Http\Request;
@@ -52,7 +53,12 @@ class VoucherController extends Controller
 
             if ($voucher->status === 'active' && $voucher->redemptions()
                     ->where('status', 'authorized')
-                    ->where('expires_at', '>', now())
+                    ->where(function ($query) {
+                        $query->where('expires_at', '>', now())
+                            ->orWhereIn('photo_session_id', PhotoSession::query()
+                                ->where('status', '!=', 'COMPLETED')
+                                ->select('id'));
+                    })
                     ->exists()) {
                 return ['error' => 'voucher'];
             }
