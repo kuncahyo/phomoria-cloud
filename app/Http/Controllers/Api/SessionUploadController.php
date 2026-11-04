@@ -187,6 +187,12 @@ class SessionUploadController extends Controller
                 $voucherRedemption->photo_session_id = $session->id;
                 $voucherRedemption->completed_at = now();
                 $voucherRedemption->save();
+
+                $voucher = $voucherRedemption->voucherCode()->lockForUpdate()->first();
+                if ($voucher && $voucher->status === 'active') {
+                    $voucher->status = 'used';
+                    $voucher->save();
+                }
             }
 
             DB::commit();
