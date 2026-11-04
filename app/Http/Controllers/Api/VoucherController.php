@@ -50,6 +50,13 @@ class VoucherController extends Controller
                 return ['error' => 'voucher'];
             }
 
+            if ($voucher->status === 'active' && $voucher->redemptions()
+                    ->where('status', 'authorized')
+                    ->where('expires_at', '>', now())
+                    ->exists()) {
+                return ['error' => 'voucher'];
+            }
+
             if ($voucher->expires_at && $voucher->expires_at->isPast()) {
                 return ['error' => 'voucher'];
             }
@@ -61,11 +68,6 @@ class VoucherController extends Controller
                 'status' => 'authorized',
                 'expires_at' => now()->addHours(4),
             ]);
-
-            if ($voucher->status === 'active') {
-                $voucher->status = 'used';
-                $voucher->save();
-            }
 
             return ['device_id' => $device->id, 'voucher_status' => $voucher->status];
         }, 3);
