@@ -11,7 +11,10 @@ class VoucherAdminController extends Controller
 {
     public function index()
     {
-        $vouchers = VoucherCode::query()->withCount('redemptions')->latest()->paginate(25);
+        $vouchers = VoucherCode::query()->withCount([
+            'redemptions as completed_count' => fn ($query) => $query->where('status', 'completed'),
+            'redemptions as pending_count' => fn ($query) => $query->where('status', 'authorized'),
+        ])->latest()->paginate(25);
         return view('admin.vouchers.index', compact('vouchers'));
     }
 
