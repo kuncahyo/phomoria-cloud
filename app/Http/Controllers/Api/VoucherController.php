@@ -16,9 +16,9 @@ class VoucherController extends Controller
     /**
      * Validate a voucher and authorize exactly one upcoming photo session.
      *
-     * A one-time voucher is changed from active to used in the same database
-     * transaction that creates its session authorization. Secret vouchers
-     * remain reusable and retain their status.
+     * A one-time voucher is reserved at authorization and changes from active
+     * to used only when all assets for its linked photo session are uploaded.
+     * Secret vouchers remain reusable and retain their status.
      */
     public function authorizeSession(Request $request)
     {
