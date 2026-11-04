@@ -13,6 +13,7 @@ return new class extends Migration
             $table->foreignId('voucher_code_id')->constrained('voucher_codes')->restrictOnDelete();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->foreignId('device_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('photo_session_id')->nullable()->unique()->constrained('photo_sessions')->nullOnDelete();
             $table->string('session_token_hash', 64)->unique();
             $table->enum('status', ['authorized', 'completed'])->default('authorized');
             $table->timestamp('expires_at');
