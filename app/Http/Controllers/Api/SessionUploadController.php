@@ -7,6 +7,8 @@ use App\Models\Photo;
 use App\Models\Device;
 use App\Models\PhotoSession;
 use App\Models\PhotoSessionAsset;
+use App\Models\VoucherRedemption;
+use Illuminate\Validation\ValidationException;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -27,6 +29,7 @@ class SessionUploadController extends Controller
             'assets.*.filename' => ['required', 'string', 'max:255'],
             'assets.*.sort_order' => ['nullable', 'integer', 'min:0'],
             'assets.*.size' => ['nullable', 'integer', 'min:0'],
+            'voucher_token' => ['nullable', 'string', 'max:128'],
         ]);
 
         $device = Device::where('device_uuid', $data['device_uuid'])
@@ -39,7 +42,7 @@ class SessionUploadController extends Controller
             return response()->json(['success' => false, 'message' => 'Manifest aset tidak valid atau tidak memiliki result.'], 422);
         }
 
-        $session = DB::transaction(function () use ($device, $data) {
+        $session = DB::transaction(function () use ($device, $data, $request) {
             // Serialize daily sequence allocation for this device. Different
             // devices have independent sequences and cannot collide.
             $lockedDevice = Device::whereKey($device->id)->lockForUpdate()->firstOrFail();
@@ -61,6 +64,29 @@ class SessionUploadController extends Controller
                     'status' => 'UPLOADING',
                     'expired_at' => now()->addDays(30),
                 ]);
+            }
+
+            if (!empty($data['voucher_token'])) {
+                $redemption = VoucherRedemption::query()
+                    ->where('session_token_hash', hash('sha256', $data['voucher_token']))
+                    ->where('user_id', $request->user()->id)
+                    ->where('device_id', $lockedDevice->id)
+                    ->whereIn('status', ['authorized', 'completed'])
+                    ->where('expires_at', '>', now())
+                    ->lockForUpdate()
+                    ->first();
+
+                if (!$redemption || ($redemption->photo_session_id !== null
+                        && (int) $redemption->photo_session_id !== (int) $session->id)) {
+                    throw ValidationException::withMessages([
+                        'voucher_token' => 'Otorisasi voucher tidak valid, kedaluwarsa, atau sudah terikat ke sesi lain.',
+                    ]);
+                }
+
+                if ($redemption->photo_session_id === null) {
+                    $redemption->photo_session_id = $session->id;
+                    $redemption->save();
+                }
             }
 
             foreach ($data['assets'] as $asset) {
@@ -149,6 +175,26 @@ class SessionUploadController extends Controller
                 ->where('status', 'PENDING')->exists();
             $lockedSession->status = $pending ? 'UPLOADING' : 'COMPLETED';
             $lockedSession->save();
+
+            if (!$pending) {
+                $redemption = VoucherRedemption::query()
+                    ->where('photo_session_id', $lockedSession->id)
+                    ->where('status', 'authorized')
+                    ->lockForUpdate()
+                    ->first();
+
+                if ($redemption) {
+                    $redemption->status = 'completed';
+                    $redemption->completed_at = now();
+                    $redemption->save();
+
+                    $voucher = $redemption->voucherCode()->lockForUpdate()->first();
+                    if ($voucher && $voucher->status === 'active') {
+                        $voucher->status = 'used';
+                        $voucher->save();
+                    }
+                }
+            }
         });
 
         return response()->json(['success' => true, 'already_uploaded' => false]);
