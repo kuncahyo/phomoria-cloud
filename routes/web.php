@@ -77,6 +77,11 @@ Route::middleware('auth')->group(function () {
         [FrameController::class, 'saveDeviceFrames']
     )->name('admin.frames.select.save');
 
+    Route::post(
+        '/admin/frames/device-password',
+        [FrameController::class, 'saveDevicePassword']
+    )->name('admin.frames.password.save');
+
     Route::get(
         '/admin/frames/create',
         [FrameController::class, 'create']
