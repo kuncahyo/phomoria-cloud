@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Device;
+use App\Models\PhotoSession;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -88,6 +89,39 @@ class DeviceAccountIsolationTest extends TestCase
             ->assertJsonPath('data.device.id', $secondDeviceId)
             ->assertJsonPath('data.device.session_price', null)
             ->assertJsonPath('data.device.password_hash', null);
+
+        // The public gallery session-code prefix must also distinguish accounts
+        // that are using the same physical installation UUID.
+        Sanctum::actingAs($firstUser);
+        $this->postJson('/api/session/reserve', [
+            'device_uuid' => $uuid,
+            'client_session_id' => '123e4567-e89b-12d3-a456-426614174010',
+            'frame_name' => 'First Account Frame',
+            'assets' => [[
+                'asset_key' => 'result',
+                'asset_type' => 'result',
+                'filename' => 'result.png',
+            ]],
+        ])->assertOk();
+
+        Sanctum::actingAs($secondUser);
+        $this->postJson('/api/session/reserve', [
+            'device_uuid' => $uuid,
+            'client_session_id' => '123e4567-e89b-12d3-a456-426614174011',
+            'frame_name' => 'Second Account Frame',
+            'assets' => [[
+                'asset_key' => 'result',
+                'asset_type' => 'result',
+                'filename' => 'result.png',
+            ]],
+        ])->assertOk();
+
+        $sessionCodes = PhotoSession::orderBy('id')->pluck('session_code')->all();
+        $this->assertCount(2, $sessionCodes);
+        $this->assertNotSame(
+            explode('-', $sessionCodes[0])[0],
+            explode('-', $sessionCodes[1])[0]
+        );
 
         // Re-registering under the same account updates its existing row instead
         // of creating a duplicate account/device association.
