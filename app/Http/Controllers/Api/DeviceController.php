@@ -100,6 +100,7 @@ class DeviceController extends Controller
                     'name' => $device->computer_name,
                     'status' => $device->status,
                     'session_price' => $device->session_price,
+                    'password_hash' => $device->password_hash,
                 ],
                 'frames' => $frames,
             ],

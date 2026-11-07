@@ -6,6 +6,10 @@ use Illuminate\Database\Eloquent\Model;
 
 class Device extends Model
 {
+    protected $hidden = [
+        'password_hash',
+    ];
+
     protected $fillable = [
         'user_id',
         'device_uuid',
@@ -16,7 +20,8 @@ class Device extends Model
         'java_version',
         'app_version',
         'status',
-        'last_online'
+        'last_online',
+        'password_hash',
     ];
 
     protected function casts(): array
