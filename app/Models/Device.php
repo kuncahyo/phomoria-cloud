@@ -25,7 +25,9 @@ class Device extends Model
 
         'status',
 
-        'last_online'
+        'last_online',
+
+        'password_hash'
 
     ];
 
