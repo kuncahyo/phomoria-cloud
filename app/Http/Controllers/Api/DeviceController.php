@@ -13,7 +13,7 @@ class DeviceController extends Controller
     public function register(Request $request)
     {
         $request->validate([
-            'device_uuid' => 'required',
+            'device_uuid' => ['required', 'uuid'],
             'computer_name' => 'required',
             'windows_user' => 'required',
             'operating_system' => 'required',
@@ -22,7 +22,10 @@ class DeviceController extends Controller
         ]);
 
         $device = Device::updateOrCreate(
-            ['device_uuid' => $request->device_uuid],
+            [
+                'user_id' => $request->user()->id,
+                'device_uuid' => $request->device_uuid,
+            ],
             [
                 'user_id' => $request->user()->id,
                 'computer_name' => $request->computer_name,
