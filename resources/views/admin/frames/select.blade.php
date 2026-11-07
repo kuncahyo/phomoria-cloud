@@ -19,6 +19,11 @@
     @if (session('success'))
         <div class="notice">{{ session('success') }}</div>
     @endif
+    @if ($errors->any())
+        <div class="notice" style="border-color:rgba(240,130,110,.3);background:rgba(240,130,110,.07);color:#ffc3b8;">
+            {{ $errors->first() }}
+        </div>
+    @endif
 
     @if ($isSuperAdmin)
         <form method="GET" action="{{ route('admin.frames.select') }}" class="selector-card" style="margin-bottom:14px;">
