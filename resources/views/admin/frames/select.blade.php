@@ -55,6 +55,33 @@
         @if ($device)
             <div class="section-title">
                 <div>
+                    <h2>Password Perangkat</h2>
+                    <p>{{ $device->password_hash ? 'Password sudah aktif pada perangkat ini.' : 'Belum ada password. Settings dan menu Close/Minimize dapat dibuka tanpa password.' }}</p>
+                </div>
+            </div>
+            <form method="POST" action="{{ route('admin.frames.password.save') }}" class="selector-card" style="margin-bottom:28px;">
+                @csrf
+                @if ($isSuperAdmin)
+                    <input type="hidden" name="user_id" value="{{ $targetUser->id }}">
+                @endif
+                <input type="hidden" name="device_id" value="{{ $device->id }}">
+                <label for="device_password">Atur password Settings / Close / Minimize</label>
+                <input id="device_password" type="password" name="password" autocomplete="new-password"
+                    placeholder="Password baru (minimal 4 karakter)" style="width:100%;min-height:44px;padding:0 13px;border:1px solid rgba(255,255,255,.12);border-radius:10px;background:#151518;color:#fff;font:inherit;">
+                <input type="password" name="password_confirmation" autocomplete="new-password"
+                    placeholder="Ulangi password baru" style="width:100%;min-height:44px;margin-top:9px;padding:0 13px;border:1px solid rgba(255,255,255,.12);border-radius:10px;background:#151518;color:#fff;font:inherit;">
+                <label style="display:flex;align-items:center;gap:9px;margin-top:13px;color:#bbb;font-size:12px;text-transform:none;letter-spacing:0;">
+                    <input type="checkbox" name="clear_password" value="1">
+                    Hapus password perangkat
+                </label>
+                <p style="margin:10px 0 0;color:#777780;font-size:12px;">Kosongkan kedua kolom untuk mempertahankan password saat ini. Password baru akan disinkronkan ke desktop saat login berikutnya.</p>
+                <div style="display:flex;justify-content:flex-end;margin-top:15px;">
+                    <button type="submit" class="save-button">Simpan Password</button>
+                </div>
+            </form>
+
+            <div class="section-title">
+                <div>
                     <h2>Frame pada {{ $device->computer_name }}</h2>
                     <p>Frame yang saat ini sudah diberikan ke device.</p>
                 </div>
