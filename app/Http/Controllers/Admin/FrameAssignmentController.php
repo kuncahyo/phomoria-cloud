@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Services\FramePlacementDetector;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -275,6 +276,45 @@ class FrameAssignmentController extends Controller
             'assignedFrameIds' => $assignedFrameIds,
             'isSuperAdmin' => $request->user()->isSuperAdmin(),
         ]);
+    }
+
+    public function saveDevicePassword(Request $request)
+    {
+        $rules = [
+            'device_id' => ['required', 'integer'],
+            'password' => ['nullable', 'string', 'min:4', 'max:72', 'confirmed'],
+            'clear_password' => ['nullable', 'boolean'],
+        ];
+
+        if ($request->user()->isSuperAdmin()) {
+            $rules['user_id'] = ['required', 'integer', 'exists:users,id'];
+        }
+
+        $data = $request->validate($rules);
+        $targetUser = $this->targetUser($request);
+        $device = $targetUser->devices()->whereKey($data['device_id'])->firstOrFail();
+
+        if ($request->boolean('clear_password')) {
+            $device->password_hash = null;
+            $message = 'Password perangkat berhasil dihapus.';
+        } elseif (!empty($data['password'])) {
+            // Force bcrypt so the desktop Java client can verify the cached hash offline.
+            $device->password_hash = Hash::driver('bcrypt')->make($data['password']);
+            $message = 'Password perangkat berhasil diperbarui. Perubahan berlaku setelah device login dan sinkronisasi.';
+        } else {
+            $message = 'Password tidak diubah.';
+        }
+
+        $device->save();
+
+        $query = ['device_id' => $device->id];
+        if ($request->user()->isSuperAdmin()) {
+            $query['user_id'] = $targetUser->id;
+        }
+
+        return redirect()
+            ->route('admin.frames.select', $query)
+            ->with('success', $message);
     }
 
     public function saveDeviceFrames(Request $request)
