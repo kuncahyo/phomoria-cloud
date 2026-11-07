@@ -68,6 +68,7 @@ class DeviceController extends Controller
                     'device_uuid' => $device->device_uuid,
                     'name' => $device->computer_name,
                     'status' => $device->status,
+                    'password_hash' => $device->password_hash,
                 ],
                 'frames' => $frames,
             ],
