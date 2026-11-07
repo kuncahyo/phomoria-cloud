@@ -53,7 +53,7 @@ class SessionUploadController extends Controller
                 $now = now();
                 $number = PhotoSession::where('device_id', $lockedDevice->id)
                     ->whereDate('created_at', $now->toDateString())->count() + 1;
-                $deviceHash = substr(hash('sha256', strtolower($lockedDevice->device_uuid)), 0, 8);
+                $deviceHash = $this->deviceHash($lockedDevice);
                 $session = PhotoSession::create([
                     'user_id' => $lockedDevice->user_id,
                     'device_id' => $lockedDevice->id,
@@ -222,7 +222,9 @@ class SessionUploadController extends Controller
             ], 422);
         }
 
-        $device = Device::where('device_uuid', $request->device_uuid)->first();
+        $device = Device::where('device_uuid', $request->device_uuid)
+            ->where('user_id', $request->user()->id)
+            ->first();
         if (!$device) {
             return response()->json([
                 'success' => false,
@@ -261,7 +263,7 @@ class SessionUploadController extends Controller
             $date = $today->format('Ymd');
             $countToday = PhotoSession::where('device_id', $lockedDevice->id)
                 ->whereDate('created_at', $today->toDateString())->count() + 1;
-            $deviceHash = substr(hash('sha256', strtolower($lockedDevice->device_uuid)), 0, 8);
+            $deviceHash = $this->deviceHash($lockedDevice);
             $sessionCode = sprintf('%s-%s-%06d', $deviceHash, $date, $countToday);
 
             $photoKeys = array_filter(
@@ -361,6 +363,17 @@ class SessionUploadController extends Controller
                 'message' => $e->getMessage(),
             ], 500);
         }
+    }
+
+    private function deviceHash(Device $device): string
+    {
+        // A physical installation can belong to multiple accounts. Include the
+        // account ID so globally unique public session codes remain distinct.
+        return substr(
+            hash('sha256', strtolower($device->device_uuid) . '|' . $device->user_id),
+            0,
+            8
+        );
     }
 
     private function galleryUrlForSession(PhotoSession $session): string
