@@ -50,6 +50,18 @@ class SessionUploadController extends Controller
             throw ValidationException::withMessages(['assets' => 'Manifest wajib menyertakan result.png.']);
         }
 
+        foreach ($assets as $asset) {
+            $key = $asset['asset_key'];
+            $expectedType = $key === 'result' ? 'result'
+                : ($key === 'gif' ? 'gif'
+                : ($key === 'live_photo' ? 'live_photo' : 'photo'));
+            if ($asset['asset_type'] !== $expectedType) {
+                throw ValidationException::withMessages([
+                    'assets' => "Jenis aset tidak cocok dengan asset key: {$key}.",
+                ]);
+            }
+        }
+
         // Idempotent reservation: retries for the same device/session return
         // the original gallery URL instead of creating another gallery.
         $existing = PhotoSession::where('client_session_id', $validated['client_session_id'])->first();
@@ -159,13 +171,14 @@ class SessionUploadController extends Controller
                 $session->save();
             });
         } catch (\Throwable $exception) {
-            Storage::disk('public')->delete($stored);
-            // A concurrent retry may have won the unique-key race.
+            // Do not delete the shared destination when a concurrent retry has
+            // already committed the same asset key and file path.
             $duplicate = Photo::where('photo_session_id', $session->id)
                 ->where('asset_key', $key)->exists();
             if ($duplicate) {
                 return response()->json(['success' => true, 'already_uploaded' => true]);
             }
+            Storage::disk('public')->delete($stored);
             throw $exception;
         }
 
