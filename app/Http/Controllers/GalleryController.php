@@ -59,6 +59,7 @@ class GalleryController extends Controller
             'status' => $session->status,
             'has_result' => $session->photos->contains(fn ($photo) => $photo->is_result),
             'assets' => $session->photos->pluck('asset_type')->unique()->values(),
+            'asset_count' => $session->photos->count(),
         ]);
     }
 
