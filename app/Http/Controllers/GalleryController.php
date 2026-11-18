@@ -49,6 +49,19 @@ class GalleryController extends Controller
         return view("gallery", compact("session"));
     }
 
+    public function status($sessionCode)
+    {
+        $session = PhotoSession::with('photos')
+            ->where('session_code', $sessionCode)
+            ->firstOrFail();
+
+        return response()->json([
+            'status' => $session->status,
+            'has_result' => $session->photos->contains(fn ($photo) => $photo->is_result),
+            'assets' => $session->photos->pluck('asset_type')->unique()->values(),
+        ]);
+    }
+
     public function downloadResult($sessionCode)
     {
         $session = PhotoSession::with("photos")
@@ -131,18 +144,11 @@ class GalleryController extends Controller
             }
 
             if ($photo->is_result) {
-
-                $zip->addFile(
-                    $path,
-                    "Result/result.png"
-                );
-
+                $zip->addFile($path, "Result/result.png");
+            } elseif ($photo->asset_type === 'photo') {
+                $zip->addFile($path, "Originals/" . $photo->filename);
             } else {
-
-                $zip->addFile(
-                    $path,
-                    "Originals/" . $photo->filename
-                );
+                $zip->addFile($path, "Media/" . $photo->filename);
             }
         }
 
