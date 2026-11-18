@@ -10,6 +10,8 @@ class Photo extends Model
     protected $fillable = [
 
         'photo_session_id',
+        'asset_key',
+        'asset_type',
 
         'filename',
 
