@@ -60,7 +60,7 @@ class GalleryController extends Controller
             'has_result' => $session->photos->contains(fn ($photo) => $photo->is_result),
             'assets' => $session->photos->pluck('asset_type')->unique()->values(),
             'asset_count' => $session->photos->count(),
-        ]);
+        ])->header('Cache-Control', 'no-store, no-cache, must-revalidate');
     }
 
     public function downloadResult($sessionCode)
