@@ -28,6 +28,7 @@ Route::get(
 Route::get('/gallery', [GalleryController::class, 'index'])
     ->name('gallery.index');
 
+Route::get('/gallery/{session_code}/status', [GalleryController::class, 'status']);
 Route::get('/gallery/{session_code}', [GalleryController::class, 'show']);
 
 Route::get(
