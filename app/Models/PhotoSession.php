@@ -12,8 +12,10 @@ class PhotoSession extends Model
         'user_id',
         'device_id',
         'session_code',
+        'client_session_id',
         'frame_name',
         'photo_count',
+        'expected_assets',
         'status',
         'expired_at'
 
@@ -21,7 +23,8 @@ class PhotoSession extends Model
 
     protected $casts = [
 
-        'expired_at' => 'datetime'
+        'expired_at' => 'datetime',
+        'expected_assets' => 'array'
 
     ];
 
