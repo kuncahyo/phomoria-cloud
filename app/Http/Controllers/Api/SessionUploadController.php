@@ -21,7 +21,7 @@ class SessionUploadController extends Controller
     {
         $validated = $request->validate([
             'device_uuid' => 'required|string|max:100',
-            'client_session_id' => 'required|string|max:100',
+            'client_session_id' => 'required|string|size:36',
             'frame_name' => 'nullable|string|max:255',
             'voucher_token' => 'nullable|string|max:255',
             'assets' => 'required|array|min:1',
@@ -64,7 +64,7 @@ class SessionUploadController extends Controller
 
         // Idempotent reservation: retries for the same device/session return
         // the original gallery URL instead of creating another gallery.
-        $existing = PhotoSession::where('client_session_id', $validated['client_session_id'])->first();
+        $existing = PhotoSession::where('client_session_id', $validated['client_session_id'])\n            ->where('device_id', $device->id)\n            ->first();
         if ($existing) {
             if ((int) $existing->device_id !== (int) $device->id
                 || (int) $existing->user_id !== (int) $request->user()->id) {
@@ -107,7 +107,7 @@ class SessionUploadController extends Controller
     {
         $validated = $request->validate([
             'device_uuid' => 'required|string|max:100',
-            'client_session_id' => 'required|string|max:100',
+            'client_session_id' => 'required|string|size:36',
             'asset_key' => ['required', 'string', 'max:100', 'regex:/^(result|gif|live_photo|photo_\d+)$/'],
             'file' => 'required|file|max:102400',
         ]);
