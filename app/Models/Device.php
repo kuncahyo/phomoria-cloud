@@ -6,29 +6,40 @@ use Illuminate\Database\Eloquent\Model;
 
 class Device extends Model
 {
-    protected $fillable = [
-        'user_id',
-        'device_uuid',
-        'computer_name',
-        'session_price',
-        'windows_user',
-        'operating_system',
-        'java_version',
-        'app_version',
-        'status',
-        'last_online'
+
+    protected $hidden = [
+        'password_hash',
     ];
 
-    protected function casts(): array
-    {
-        return [
-            'session_price' => 'integer',
-        ];
-    }
+    protected $fillable = [
+
+        'user_id',
+
+        'device_uuid',
+
+        'computer_name',
+
+        'windows_user',
+
+        'operating_system',
+
+        'java_version',
+
+        'app_version',
+
+        'status',
+
+        'last_online',
+
+        'password_hash'
+
+    ];
 
     public function user()
     {
+
         return $this->belongsTo(User::class);
+
     }
 
     public function photoSessions()
@@ -43,4 +54,5 @@ class Device extends Model
             'device_frames'
         )->withTimestamps();
     }
+
 }
