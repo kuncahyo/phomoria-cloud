@@ -118,6 +118,88 @@ class SessionUploadController extends Controller
         ]]);
     }
 
+    /**
+     * Register an asset produced after the initial session reservation.
+     * Repeated registration is idempotent and never resets an uploaded asset.
+     */
+    public function registerAsset(Request $request)
+    {
+        $data = $request->validate([
+            'device_uuid' => ['required', 'uuid'],
+            'client_session_id' => ['required', 'uuid'],
+            'asset_key' => ['required', 'string', 'max:100'],
+            'asset_type' => ['required', 'in:gif,live_photo,photo'],
+            'filename' => ['required', 'string', 'max:255'],
+            'sort_order' => ['nullable', 'integer', 'min:0'],
+            'size' => ['nullable', 'integer', 'min:1'],
+        ]);
+
+        $device = Device::where('device_uuid', $data['device_uuid'])
+            ->where('user_id', $request->user()->id)->firstOrFail();
+
+        $result = DB::transaction(function () use ($device, $data) {
+            $session = PhotoSession::where('device_id', $device->id)
+                ->where('client_session_id', $data['client_session_id'])
+                ->lockForUpdate()->firstOrFail();
+
+            $filename = basename($data['filename']);
+            $asset = PhotoSessionAsset::where('photo_session_id', $session->id)
+                ->where('asset_key', $data['asset_key'])->lockForUpdate()->first();
+
+            if ($asset) {
+                // A retry must describe the same asset. Do not silently redirect
+                // an existing key to another file or type.
+                if ($asset->asset_type !== $data['asset_type'] || $asset->filename !== $filename) {
+                    return ['conflict' => true];
+                }
+                if ($asset->expected_size !== null && isset($data['size'])
+                    && (int) $asset->expected_size !== (int) $data['size']) {
+                    return ['conflict' => true];
+                }
+                if ($asset->expected_size === null && isset($data['size'])) {
+                    $asset->expected_size = $data['size'];
+                    $asset->save();
+                }
+            } else {
+                $asset = PhotoSessionAsset::create([
+                    'photo_session_id' => $session->id,
+                    'asset_key' => $data['asset_key'],
+                    'asset_type' => $data['asset_type'],
+                    'filename' => $filename,
+                    'sort_order' => $data['sort_order'] ?? 0,
+                    'expected_size' => $data['size'] ?? null,
+                    'status' => 'PENDING',
+                ]);
+            }
+
+            if ($asset->status !== 'UPLOADED' && $session->status === 'COMPLETED') {
+                $session->status = 'UPLOADING';
+                $session->save();
+            }
+
+            return ['conflict' => false, 'asset' => $asset];
+        });
+
+        if ($result['conflict']) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Registrasi aset tidak cocok dengan aset yang sudah terdaftar.',
+            ], 409);
+        }
+
+        $asset = $result['asset'];
+        return response()->json([
+            'success' => true,
+            'already_uploaded' => $asset->status === 'UPLOADED',
+            'asset' => [
+                'asset_key' => $asset->asset_key,
+                'asset_type' => $asset->asset_type,
+                'filename' => $asset->filename,
+                'status' => $asset->status,
+            ],
+        ]);
+    }
+
     public function uploadAsset(Request $request)
     {
         $data = $request->validate([
