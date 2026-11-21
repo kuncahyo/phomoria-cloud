@@ -128,7 +128,7 @@ class SessionUploadController extends Controller
             'device_uuid' => ['required', 'uuid'],
             'client_session_id' => ['required', 'uuid'],
             'asset_key' => ['required', 'string', 'max:100'],
-            'asset_type' => ['required', 'in:gif,live_photo,photo'],
+            'asset_type' => ['required', 'in:result,gif,live_photo,photo'],
             'filename' => ['required', 'string', 'max:255'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
             'size' => ['nullable', 'integer', 'min:1'],
