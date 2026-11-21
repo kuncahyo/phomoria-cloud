@@ -16,6 +16,7 @@ class Device extends Model
         'user_id',
 
         'device_uuid',
+        'session_price',
 
         'computer_name',
 
@@ -31,9 +32,16 @@ class Device extends Model
 
         'last_online',
 
-        'password_hash'
+        'password_hash',
 
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'session_price' => 'integer',
+        ];
+    }
 
     public function user()
     {
