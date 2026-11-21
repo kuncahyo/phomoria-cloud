@@ -28,6 +28,7 @@ Route::middleware("auth:sanctum")->group(function () {
     Route::put("device/price", [DeviceController::class, "updatePrice"]);
     Route::post("session/reserve", [SessionUploadController::class, "reserve"]);
     Route::post("session/asset/register", [SessionUploadController::class, "registerAsset"]);
+    Route::post("session/finalize", [SessionUploadController::class, "finalize"]);
     Route::post("voucher/authorize-session", [VoucherController::class, "authorizeSession"]);
     Route::post("session/asset", [SessionUploadController::class, "uploadAsset"]);
     Route::post("session/upload", [SessionUploadController::class, "upload"]);
