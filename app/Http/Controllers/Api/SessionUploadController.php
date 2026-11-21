@@ -200,6 +200,71 @@ class SessionUploadController extends Controller
         ]);
     }
 
+    /**
+     * Finalize an incremental upload only after every registered asset arrived.
+     * Safe to retry after a lost response.
+     */
+    public function finalize(Request $request)
+    {
+        $data = $request->validate([
+            'device_uuid' => ['required', 'uuid'],
+            'client_session_id' => ['required', 'uuid'],
+        ]);
+
+        $device = Device::where('device_uuid', $data['device_uuid'])
+            ->where('user_id', $request->user()->id)->firstOrFail();
+
+        $session = DB::transaction(function () use ($device, $data) {
+            $lockedSession = PhotoSession::where('device_id', $device->id)
+                ->where('client_session_id', $data['client_session_id'])
+                ->lockForUpdate()->firstOrFail();
+
+            $pending = PhotoSessionAsset::where('photo_session_id', $lockedSession->id)
+                ->where('status', 'PENDING')->exists();
+
+            if ($pending) {
+                return ['pending' => true, 'session' => $lockedSession];
+            }
+
+            $lockedSession->status = 'COMPLETED';
+            $lockedSession->save();
+
+            $redemption = VoucherRedemption::query()
+                ->where('photo_session_id', $lockedSession->id)
+                ->where('status', 'authorized')
+                ->lockForUpdate()
+                ->first();
+
+            if ($redemption) {
+                $redemption->status = 'completed';
+                $redemption->completed_at = now();
+                $redemption->save();
+
+                $voucher = $redemption->voucherCode()->lockForUpdate()->first();
+                if ($voucher && $voucher->status === 'active') {
+                    $voucher->status = 'used';
+                    $voucher->save();
+                }
+            }
+
+            return ['pending' => false, 'session' => $lockedSession];
+        });
+
+        if ($session['pending']) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Masih ada aset yang belum diunggah.',
+                'status' => 'UPLOADING',
+            ], 409);
+        }
+
+        return response()->json([
+            'success' => true,
+            'status' => 'COMPLETED',
+            'session_code' => $session['session']->session_code,
+        ]);
+    }
+
     public function uploadAsset(Request $request)
     {
         $data = $request->validate([
@@ -256,30 +321,10 @@ class SessionUploadController extends Controller
                 $locked->file_size = $file->getSize();
                 $locked->save();
             }
-            $pending = PhotoSessionAsset::where('photo_session_id', $lockedSession->id)
-                ->where('status', 'PENDING')->exists();
-            $lockedSession->status = $pending ? 'UPLOADING' : 'COMPLETED';
+            // The client explicitly finalizes after optional renderers finish.
+            // Never expose COMPLETED while late assets may still be registered.
+            $lockedSession->status = 'UPLOADING';
             $lockedSession->save();
-
-            if (!$pending) {
-                $redemption = VoucherRedemption::query()
-                    ->where('photo_session_id', $lockedSession->id)
-                    ->where('status', 'authorized')
-                    ->lockForUpdate()
-                    ->first();
-
-                if ($redemption) {
-                    $redemption->status = 'completed';
-                    $redemption->completed_at = now();
-                    $redemption->save();
-
-                    $voucher = $redemption->voucherCode()->lockForUpdate()->first();
-                    if ($voucher && $voucher->status === 'active') {
-                        $voucher->status = 'used';
-                        $voucher->save();
-                    }
-                }
-            }
         });
 
         return response()->json(['success' => true, 'already_uploaded' => false]);
