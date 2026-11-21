@@ -1,15 +1,15 @@
 <?php
 
-use Illuminate\\Database\\Migrations\\Migration;
-use Illuminate\\Database\\Schema\\Blueprint;
-use Illuminate\\Support\\Facades\\DB;
-use Illuminate\\Support\\Facades\\Schema;
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
     public function up(): void
     {
-        // client_session_id already exists on some installations as CHAR(36),
+        // client_session_id already exists on this installation as CHAR(36),
         // with a unique composite index on (device_id, client_session_id).
         // Preserve that existing UUID column and index.
         if (!Schema::hasColumn('photo_sessions', 'expected_assets')) {
